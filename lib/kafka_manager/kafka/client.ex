@@ -14,11 +14,16 @@ defmodule KafkaManager.Kafka.Client do
 
   require Record
 
-  alias KafkaManager.Kafka.{BrokerError, Config}
+  alias KafkaManager.Kafka.{BrokerError, Config, Message}
 
   Record.defrecordp(
     :kpro_rsp,
     Record.extract(:kpro_rsp, from_lib: "kafka_protocol/include/kpro.hrl")
+  )
+
+  Record.defrecordp(
+    :kafka_message,
+    Record.extract(:kafka_message, from_lib: "brod/include/brod.hrl")
   )
 
   @task_supervisor KafkaManager.Kafka.TaskSupervisor
@@ -67,6 +72,49 @@ defmodule KafkaManager.Kafka.Client do
       when is_list(partitions) and which in [:earliest, :latest] do
     run(config, fn -> fetch_list_offsets(config, partitions, which) end)
   end
+
+  @doc """
+  Fetches one message set starting at `offset`, capped at `max_bytes`. On
+  success returns the converted `%Message{}` list plus the high watermark
+  offset. A `max_bytes` too small for the available messages returns an
+  `:ok` result with an empty message list rather than an error; `Messages`
+  is responsible for retrying with a larger `max_bytes`.
+  """
+  @spec fetch(Config.t(), String.t(), non_neg_integer(), integer(), pos_integer()) ::
+          {:ok, %{messages: [Message.t()], high_watermark: integer()}}
+          | {:error, BrokerError.t()}
+  def fetch(%Config{} = config, topic, partition, offset, max_bytes)
+      when is_binary(topic) and is_integer(partition) and is_integer(offset) and
+             is_integer(max_bytes) do
+    run(config, fn -> do_fetch(config, topic, partition, offset, max_bytes) end)
+  end
+
+  defp do_fetch(config, topic, partition, offset, max_bytes) do
+    opts = %{max_wait_time: config.request_timeout, min_bytes: 0, max_bytes: max_bytes}
+
+    case :brod.fetch({endpoints(config), conn_config(config)}, topic, partition, offset, opts) do
+      {:ok, {high_watermark, messages}} ->
+        {:ok, %{messages: Enum.map(messages, &to_message/1), high_watermark: high_watermark}}
+
+      {:error, reason} ->
+        {:error, broker_error(config, reason)}
+    end
+  end
+
+  defp to_message(record) do
+    %Message{
+      offset: kafka_message(record, :offset),
+      key: normalize_key(kafka_message(record, :key)),
+      value: kafka_message(record, :value),
+      timestamp: DateTime.from_unix!(kafka_message(record, :ts), :millisecond),
+      headers: kafka_message(record, :headers)
+    }
+  end
+
+  defp normalize_key(<<>>), do: nil
+  defp normalize_key(:undefined), do: nil
+  defp normalize_key(:null), do: nil
+  defp normalize_key(key), do: key
 
   @doc """
   The topic-level broker configuration (name/value pairs), via a raw

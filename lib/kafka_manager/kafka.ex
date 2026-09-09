@@ -6,7 +6,7 @@ defmodule KafkaManager.Kafka do
   something new, add a function here rather than reaching past it.
   """
 
-  alias KafkaManager.Kafka.Topics
+  alias KafkaManager.Kafka.{Messages, Topics}
 
   @doc """
   The cluster connection settings resolved at boot by
@@ -29,4 +29,13 @@ defmodule KafkaManager.Kafka do
   @spec get_topic(String.t()) ::
           {:ok, KafkaManager.Kafka.Topic.t()} | {:error, KafkaManager.Kafka.BrokerError.t()}
   def get_topic(name), do: Topics.get_topic(config(), name)
+
+  @doc """
+  A page of messages from a chosen partition starting at a chosen offset.
+  See `KafkaManager.Kafka.Messages.fetch_messages/5`.
+  """
+  @spec fetch_messages(String.t(), non_neg_integer(), integer(), pos_integer()) ::
+          {:ok, map()} | {:error, KafkaManager.Kafka.BrokerError.t()}
+  def fetch_messages(topic, partition, from_offset, limit),
+    do: Messages.fetch_messages(config(), topic, partition, from_offset, limit)
 end

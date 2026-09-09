@@ -69,7 +69,8 @@ defmodule KafkaManager.MixProject do
       {:bandit, "~> 1.5"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
-      {:brod, "~> 4.3"}
+      {:brod, "~> 4.3"},
+      {:snappyer, "~> 1.2"}
     ]
   end
 
