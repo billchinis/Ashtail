@@ -24,7 +24,13 @@
     <tr :for={{dom_id, message} <- @streams.messages} id={dom_id} data-offset={message.offset}>
       <td>{message.offset}</td>
       <td><.message_key key={message.key} /></td>
-      <td><.message_value value={message.value} /></td>
+      <td data-value>
+        <.message_value
+          value={message.value}
+          expanded?={message.expanded?}
+          offset={message.offset}
+        />
+      </td>
       <td>{message.timestamp}</td>
       <td><.message_headers headers={message.headers} /></td>
     </tr>

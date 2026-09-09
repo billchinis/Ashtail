@@ -21,7 +21,8 @@ defmodule KafkaManagerWeb.MessageLive.Index do
         offset: 0,
         page_size: @default_page_size,
         earliest: nil,
-        latest: nil
+        latest: nil,
+        message_index: %{}
       )
       |> stream_configure(:messages, dom_id: &("message-" <> to_string(&1.offset)))
       |> stream(:messages, [])
@@ -57,6 +58,14 @@ defmodule KafkaManagerWeb.MessageLive.Index do
      )}
   end
 
+  def handle_event("expand_value", %{"offset" => offset}, socket) do
+    {:noreply, toggle_expanded(socket, String.to_integer(offset), true)}
+  end
+
+  def handle_event("collapse_value", %{"offset" => offset}, socket) do
+    {:noreply, toggle_expanded(socket, String.to_integer(offset), false)}
+  end
+
   def message_path(topic, partition, offset, page_size) do
     ~p"/topics/#{topic}/partitions/#{partition}?#{[offset: offset, page_size: page_size]}"
   end
@@ -64,13 +73,31 @@ defmodule KafkaManagerWeb.MessageLive.Index do
   defp fetch_messages(socket, topic, partition, offset, page_size) do
     case Kafka.fetch_messages(topic, partition, offset, page_size) do
       {:ok, %{messages: messages, earliest: earliest, latest: latest}} ->
+        index = Map.new(messages, &{&1.offset, &1})
+        rows = Enum.map(messages, &to_row(&1, false))
+
         socket
-        |> assign(broker_error: nil, earliest: earliest, latest: latest)
-        |> stream(:messages, messages, reset: true)
+        |> assign(broker_error: nil, earliest: earliest, latest: latest, message_index: index)
+        |> stream(:messages, rows, reset: true)
 
       {:error, %BrokerError{} = error} ->
         assign(socket, broker_error: error)
     end
+  end
+
+  # P4 (PLAN 4.1): the toggle handler re-inserts only the affected row,
+  # looked up from the bounded `:message_index` map built at fetch time.
+  defp toggle_expanded(socket, offset, expanded?) do
+    case socket.assigns.message_index[offset] do
+      nil -> socket
+      message -> stream_insert(socket, :messages, to_row(message, expanded?))
+    end
+  end
+
+  defp to_row(message, expanded?) do
+    message
+    |> Map.from_struct()
+    |> Map.put(:expanded?, expanded?)
   end
 
   defp parse_offset(nil), do: 0
