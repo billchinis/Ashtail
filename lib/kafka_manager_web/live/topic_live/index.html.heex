@@ -11,6 +11,11 @@
   </select>
 </form>
 
+<form id="search-form" data-search-form phx-change="search">
+  <label for="q">Search</label>
+  <input type="text" id="q" name="q" value={@search} phx-debounce="200" />
+</form>
+
 <table>
   <thead>
     <tr>
@@ -34,7 +39,7 @@
   <.link
     :if={@page > 1}
     data-prev-page
-    patch={page_path(@page - 1, @page_size)}
+    patch={page_path(@page - 1, @page_size, @search)}
   >
     Previous page
   </.link>
@@ -42,7 +47,7 @@
   <.link
     :if={@page < @page_count}
     data-next-page
-    patch={page_path(@page + 1, @page_size)}
+    patch={page_path(@page + 1, @page_size, @search)}
   >
     Next page
   </.link>
