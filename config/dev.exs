@@ -45,6 +45,17 @@ config :kafka_manager, KafkaManagerWeb.Endpoint,
 # Enable dev routes for dashboard and mailbox
 config :kafka_manager, dev_routes: true
 
+# Kafka connection defaults, overridable by KAFKA_* environment variables.
+config :kafka_manager, :kafka_defaults,
+  brokers: "localhost:19092",
+  client_id: "kafka_manager",
+  connect_timeout: 5000,
+  request_timeout: 10_000,
+  tls: false,
+  sasl_mechanism: nil,
+  sasl_username: nil,
+  sasl_password: nil
+
 # Do not include metadata nor timestamps in development logs
 config :logger, :default_formatter, format: "[$level] $message\n"
 

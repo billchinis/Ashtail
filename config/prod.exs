@@ -23,5 +23,18 @@ config :kafka_manager, KafkaManagerWeb.Endpoint,
 # Do not print debug messages in production
 config :logger, level: :info
 
+# Kafka connection defaults, overridable by KAFKA_* environment variables.
+# `brokers: :required` makes `Config.resolve!/0` raise at boot if
+# KAFKA_BROKERS is not set, the way SECRET_KEY_BASE already does.
+config :kafka_manager, :kafka_defaults,
+  brokers: :required,
+  client_id: "kafka_manager",
+  connect_timeout: 10_000,
+  request_timeout: 30_000,
+  tls: true,
+  sasl_mechanism: nil,
+  sasl_username: nil,
+  sasl_password: nil
+
 # Runtime production configuration, including reading
 # of environment variables, is done on config/runtime.exs.

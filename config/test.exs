@@ -20,3 +20,14 @@ config :phoenix_live_view,
 # Sort query params output of verified routes for robust url comparisons
 config :phoenix,
   sort_verified_routes_query_params: true
+
+# Kafka connection defaults, overridable by KAFKA_* environment variables.
+config :kafka_manager, :kafka_defaults,
+  brokers: "localhost:19092",
+  client_id: "kafka_manager",
+  connect_timeout: 5000,
+  request_timeout: 10_000,
+  tls: false,
+  sasl_mechanism: nil,
+  sasl_username: nil,
+  sasl_password: nil

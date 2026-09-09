@@ -7,6 +7,9 @@ defmodule KafkaManager.Application do
 
   @impl true
   def start(_type, _args) do
+    config = KafkaManager.Kafka.Config.resolve!()
+    Application.put_env(:kafka_manager, :kafka_config, config)
+
     children = [
       KafkaManagerWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:kafka_manager, :dns_cluster_query) || :ignore},
