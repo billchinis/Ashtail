@@ -3,6 +3,14 @@
 <h1>Topics</h1>
 <p>{@total} topics</p>
 
+<form id="page-size-form" data-page-size-form phx-change="page_size">
+  <label for="page_size">Page size</label>
+  <select id="page_size" name="page_size">
+    <option value="20" selected={@page_size == 20}>20</option>
+    <option value="50" selected={@page_size == 50}>50</option>
+  </select>
+</form>
+
 <table>
   <thead>
     <tr>
@@ -21,3 +29,21 @@
     </tr>
   </tbody>
 </table>
+
+<div>
+  <.link
+    :if={@page > 1}
+    data-prev-page
+    patch={page_path(@page - 1, @page_size)}
+  >
+    Previous page
+  </.link>
+  <span>Page {@page} of {@page_count}</span>
+  <.link
+    :if={@page < @page_count}
+    data-next-page
+    patch={page_path(@page + 1, @page_size)}
+  >
+    Next page
+  </.link>
+</div>

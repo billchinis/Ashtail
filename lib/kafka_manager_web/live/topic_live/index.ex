@@ -29,9 +29,38 @@ defmodule KafkaManagerWeb.TopicLive.Index do
   end
 
   @impl true
-  def handle_params(_params, _uri, socket) do
-    {:noreply, fetch_topics(socket)}
+  def handle_params(params, _uri, socket) do
+    page = parse_page(params["page"])
+    page_size = parse_page_size(params["page_size"])
+
+    socket =
+      socket
+      |> assign(page: page, page_size: page_size)
+      |> fetch_topics()
+
+    {:noreply, socket}
   end
+
+  @impl true
+  def handle_event("page_size", %{"page_size" => page_size}, socket) do
+    {:noreply, push_patch(socket, to: page_path(1, page_size))}
+  end
+
+  def page_path(page, page_size) do
+    ~p"/?#{[page: page, page_size: page_size]}"
+  end
+
+  defp parse_page(nil), do: 1
+
+  defp parse_page(page) do
+    case Integer.parse(page) do
+      {int, _} when int > 0 -> int
+      _ -> 1
+    end
+  end
+
+  defp parse_page_size(page_size) when page_size in ["20", "50"], do: String.to_integer(page_size)
+  defp parse_page_size(_), do: @default_page_size
 
   defp fetch_topics(socket) do
     %{page: page, page_size: page_size} = socket.assigns
