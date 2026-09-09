@@ -2,6 +2,14 @@
 
 <h1>Topic {@topic_name}, partition {@partition}</h1>
 
+<form id="page-size-form" data-page-size-form phx-change="page_size">
+  <label for="page_size">Page size</label>
+  <select id="page_size" name="page_size">
+    <option value="20" selected={@page_size == 20}>20</option>
+    <option value="50" selected={@page_size == 50}>50</option>
+  </select>
+</form>
+
 <table>
   <thead>
     <tr>
@@ -22,3 +30,27 @@
     </tr>
   </tbody>
 </table>
+
+<div>
+  <.link
+    :if={@earliest != nil and @offset > @earliest}
+    data-prev-page
+    patch={
+      message_path(
+        @topic_name,
+        @partition,
+        max(@earliest, @offset - @page_size),
+        @page_size
+      )
+    }
+  >
+    Previous page
+  </.link>
+  <.link
+    :if={@latest != nil and @offset + @page_size < @latest}
+    data-next-page
+    patch={message_path(@topic_name, @partition, @offset + @page_size, @page_size)}
+  >
+    Next page
+  </.link>
+</div>
