@@ -10,6 +10,11 @@
   </select>
 </form>
 
+<button type="button" data-tail-toggle phx-click="toggle_tail">
+  {if @tailing?, do: "Stop tailing", else: "Start tailing"}
+</button>
+<span data-tail={if @tailing?, do: "live", else: "off"}></span>
+
 <table>
   <thead>
     <tr>

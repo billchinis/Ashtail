@@ -31,6 +31,7 @@ defmodule KafkaManager.Kafka.Client do
   @list_offsets_vsn 1
   @describe_configs_vsn 1
   @config_resource_type_topic 2
+  @produce_vsn 7
 
   @doc """
   Runs `fun` in a supervised, unlinked task and waits for it, converting a
@@ -115,6 +116,76 @@ defmodule KafkaManager.Kafka.Client do
   defp normalize_key(:undefined), do: nil
   defp normalize_key(:null), do: nil
   defp normalize_key(key), do: key
+
+  @doc """
+  Produces one message to a chosen topic/partition, with an optional key,
+  headers and timestamp. Not available in `:brod`'s high-level API without a
+  started client: goes through `:kpro.connect_partition_leader/4` plus
+  `:kpro_req_lib.produce/4` plus `:kpro.request_sync/3`.
+  """
+  @spec produce(Config.t(), String.t(), non_neg_integer(), map()) ::
+          {:ok, %{partition: non_neg_integer(), offset: integer()}}
+          | {:error, BrokerError.t()}
+  def produce(%Config{} = config, topic, partition, attrs)
+      when is_binary(topic) and is_integer(partition) and is_map(attrs) do
+    run(config, fn -> do_produce(config, topic, partition, attrs) end)
+  end
+
+  defp do_produce(config, topic, partition, attrs) do
+    case :kpro.connect_partition_leader(endpoints(config), conn_config(config), topic, partition) do
+      {:ok, connection} ->
+        try do
+          request = produce_request(topic, partition, attrs)
+
+          case :kpro.request_sync(connection, request, config.request_timeout) do
+            {:ok, response} ->
+              parse_produce_response(config, kpro_rsp(response, :msg))
+
+            {:error, reason} ->
+              {:error, broker_error(config, reason)}
+          end
+        after
+          :kpro.close_connection(connection)
+        end
+
+      {:error, reason} ->
+        {:error, broker_error(config, reason)}
+    end
+  end
+
+  defp produce_request(topic, partition, attrs) do
+    message = produce_message_input(attrs)
+    :kpro_req_lib.produce(@produce_vsn, topic, partition, [message])
+  end
+
+  defp produce_message_input(attrs) do
+    base = %{key: denormalize_key(attrs[:key]), value: Map.fetch!(attrs, :value)}
+
+    base
+    |> maybe_put(:headers, attrs[:headers])
+    |> maybe_put(:ts, produce_timestamp(attrs[:timestamp]))
+  end
+
+  defp denormalize_key(nil), do: <<>>
+  defp denormalize_key(key), do: key
+
+  defp produce_timestamp(nil), do: nil
+  defp produce_timestamp(%DateTime{} = timestamp), do: DateTime.to_unix(timestamp, :millisecond)
+
+  defp maybe_put(map, _key, nil), do: map
+  defp maybe_put(map, key, value), do: Map.put(map, key, value)
+
+  defp parse_produce_response(config, %{
+         responses: [%{partition_responses: [partition_response | _]} | _]
+       }) do
+    case partition_response do
+      %{error_code: :no_error, partition: partition, base_offset: offset} ->
+        {:ok, %{partition: partition, offset: offset}}
+
+      %{error_code: error_code} ->
+        {:error, broker_error(config, error_code)}
+    end
+  end
 
   @doc """
   The topic-level broker configuration (name/value pairs), via a raw

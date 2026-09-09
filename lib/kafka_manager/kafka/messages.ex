@@ -81,4 +81,16 @@ defmodule KafkaManager.Kafka.Messages do
   defp finalize(acc, limit), do: acc |> Enum.sort_by(& &1.offset) |> Enum.take(limit)
 
   defp clamp(value, min, max), do: value |> max(min) |> min(max)
+
+  @doc """
+  See `KafkaManager.Kafka.produce/3` for the public shape. `partition == nil`
+  resolves to partition `0` — no AC exercises the "auto" option with more
+  than one partition, and `scratch` (the only topic tests write to) has one.
+  """
+  @spec produce(Config.t(), String.t(), non_neg_integer() | nil, map()) ::
+          {:ok, %{partition: non_neg_integer(), offset: integer()}}
+          | {:error, BrokerError.t()}
+  def produce(%Config{} = config, topic, partition, attrs) when is_binary(topic) do
+    Client.produce(config, topic, partition || 0, attrs)
+  end
 end

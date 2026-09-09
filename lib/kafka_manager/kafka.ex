@@ -38,4 +38,12 @@ defmodule KafkaManager.Kafka do
           {:ok, map()} | {:error, KafkaManager.Kafka.BrokerError.t()}
   def fetch_messages(topic, partition, from_offset, limit),
     do: Messages.fetch_messages(config(), topic, partition, from_offset, limit)
+
+  @doc """
+  Produces one message to a chosen topic/partition. `partition == nil` lets
+  the context choose. See `KafkaManager.Kafka.Messages.produce/4`.
+  """
+  @spec produce(String.t(), non_neg_integer() | nil, map()) ::
+          {:ok, map()} | {:error, KafkaManager.Kafka.BrokerError.t()}
+  def produce(topic, partition, attrs), do: Messages.produce(config(), topic, partition, attrs)
 end
