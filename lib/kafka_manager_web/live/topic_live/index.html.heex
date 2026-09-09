@@ -1,0 +1,23 @@
+<.broker_error error={@broker_error} />
+
+<h1>Topics</h1>
+<p>{@total} topics</p>
+
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Partitions</th>
+      <th>Replication</th>
+      <th>Messages</th>
+    </tr>
+  </thead>
+  <tbody id="topics" phx-update="stream">
+    <tr :for={{dom_id, topic} <- @streams.topics} id={dom_id} data-topic={topic.name}>
+      <td>{topic.name}</td>
+      <td>{topic.partition_count} partitions</td>
+      <td>RF {topic.replication_factor}</td>
+      <td>{topic.message_count} messages</td>
+    </tr>
+  </tbody>
+</table>

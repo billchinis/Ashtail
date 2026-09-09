@@ -14,8 +14,7 @@ defmodule KafkaManager.Application do
       KafkaManagerWeb.Telemetry,
       {DNSCluster, query: Application.get_env(:kafka_manager, :dns_cluster_query) || :ignore},
       {Phoenix.PubSub, name: KafkaManager.PubSub},
-      # Start a worker by calling: KafkaManager.Worker.start_link(arg)
-      # {KafkaManager.Worker, arg},
+      {Task.Supervisor, name: KafkaManager.Kafka.TaskSupervisor},
       # Start to serve requests, typically the last entry
       KafkaManagerWeb.Endpoint
     ]

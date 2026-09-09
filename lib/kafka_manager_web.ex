@@ -81,6 +81,7 @@ defmodule KafkaManagerWeb do
       import Phoenix.HTML
       # Core UI components
       import KafkaManagerWeb.CoreComponents
+      import KafkaManagerWeb.BrokerComponents
 
       # Common modules used in templates
       alias Phoenix.LiveView.JS

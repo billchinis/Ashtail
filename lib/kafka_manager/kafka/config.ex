@@ -100,9 +100,16 @@ defmodule KafkaManager.Kafka.Config do
       connect_timeout: config.connect_timeout,
       request_timeout: config.request_timeout,
       ssl: config.tls,
-      sasl: config.sasl
+      sasl: sasl_opt(config.sasl)
     }
   end
+
+  # kpro's SASL code matches the *Erlang* atom `undefined` to mean "no auth".
+  # Elixir's `nil` is a different atom and does not match that clause, so it
+  # must be translated at the boundary or every plaintext connection attempts
+  # (and fails) a SASL handshake.
+  defp sasl_opt(nil), do: :undefined
+  defp sasl_opt(sasl), do: sasl
 
   defp app_defaults do
     Application.get_env(:kafka_manager, :kafka_defaults, [])
