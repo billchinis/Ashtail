@@ -18,6 +18,7 @@ defmodule KafkaManagerWeb.Router do
     pipe_through :browser
 
     live "/", TopicLive.Index, :index
+    live "/topics/:topic", TopicLive.Show, :show
   end
 
   # Other scopes may use custom stacks.

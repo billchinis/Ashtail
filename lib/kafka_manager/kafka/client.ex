@@ -24,6 +24,8 @@ defmodule KafkaManager.Kafka.Client do
   @task_supervisor KafkaManager.Kafka.TaskSupervisor
   @deadline_slack_ms 1_000
   @list_offsets_vsn 1
+  @describe_configs_vsn 1
+  @config_resource_type_topic 2
 
   @doc """
   Runs `fun` in a supervised, unlinked task and waits for it, converting a
@@ -64,6 +66,73 @@ defmodule KafkaManager.Kafka.Client do
   def list_offsets(%Config{} = config, partitions, which)
       when is_list(partitions) and which in [:earliest, :latest] do
     run(config, fn -> fetch_list_offsets(config, partitions, which) end)
+  end
+
+  @doc """
+  The topic-level broker configuration (name/value pairs), via a raw
+  `DescribeConfigs` request. Not available in `:brod`'s high-level API.
+  """
+  @spec describe_topic_config(Config.t(), String.t()) ::
+          {:ok, [%{name: String.t(), value: String.t() | nil, source: String.t()}]}
+          | {:error, BrokerError.t()}
+  def describe_topic_config(%Config{} = config, topic) when is_binary(topic) do
+    run(config, fn -> fetch_topic_config(config, topic) end)
+  end
+
+  defp fetch_topic_config(config, topic) do
+    case :kpro.connect_any(endpoints(config), conn_config(config)) do
+      {:ok, connection} ->
+        try do
+          request = describe_configs_request(topic)
+
+          case :kpro.request_sync(connection, request, config.request_timeout) do
+            {:ok, response} ->
+              case parse_describe_configs_response(kpro_rsp(response, :msg)) do
+                {:ok, entries} -> {:ok, entries}
+                {:error, reason} -> {:error, broker_error(config, reason)}
+              end
+
+            {:error, reason} ->
+              {:error, broker_error(config, reason)}
+          end
+        after
+          :kpro.close_connection(connection)
+        end
+
+      {:error, reason} ->
+        {:error, broker_error(config, reason)}
+    end
+  end
+
+  defp describe_configs_request(topic) do
+    resources = [
+      %{
+        resource_type: @config_resource_type_topic,
+        resource_name: topic,
+        config_names: :undefined
+      }
+    ]
+
+    fields = [{:resources, resources}, {:include_synonyms, false}]
+
+    :kpro.make_request(:describe_configs, @describe_configs_vsn, fields)
+  end
+
+  defp parse_describe_configs_response(%{resources: [%{error_code: :no_error} = resource]}) do
+    entries = resource.config_entries
+
+    {:ok,
+     Enum.map(entries, fn %{config_name: name, config_value: value, config_source: source} ->
+       %{name: name, value: value, source: to_string(source)}
+     end)}
+  end
+
+  defp parse_describe_configs_response(%{resources: [%{error_code: :unknown_topic_or_partition}]}) do
+    {:error, :unknown_topic}
+  end
+
+  defp parse_describe_configs_response(%{resources: [%{error_code: error_code}]}) do
+    {:error, error_code}
   end
 
   defp fetch_metadata(config, topics) do

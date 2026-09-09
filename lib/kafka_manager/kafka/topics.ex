@@ -53,6 +53,34 @@ defmodule KafkaManager.Kafka.Topics do
     end
   end
 
+  @doc """
+  A single topic's per-partition offsets and broker configuration.
+  """
+  @spec get_topic(Config.t(), String.t()) :: {:ok, Topic.t()} | {:error, BrokerError.t()}
+  def get_topic(%Config{} = config, name) when is_binary(name) do
+    with {:ok, metadata} <- Client.metadata(config),
+         {:ok, topic} <- find_topic(metadata, config, name),
+         {:ok, [topic]} <- attach_offsets(config, [topic]),
+         {:ok, config_entries} <- Client.describe_topic_config(config, name) do
+      {:ok, %Topic{topic | config: config_entries}}
+    end
+  end
+
+  defp find_topic(metadata, config, name) do
+    case metadata |> topics_from_metadata() |> Enum.find(&(&1.name == name)) do
+      nil -> {:error, unknown_topic_error(config, name)}
+      topic -> {:ok, topic}
+    end
+  end
+
+  defp unknown_topic_error(config, name) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :unknown_topic,
+      message: "Topic #{name} does not exist on this cluster."
+    }
+  end
+
   defp topics_from_metadata(%{topics: topics}) do
     topics
     |> Enum.reject(& &1[:is_internal])

@@ -21,4 +21,12 @@ defmodule KafkaManager.Kafka do
   """
   @spec list_topics(keyword()) :: {:ok, map()} | {:error, KafkaManager.Kafka.BrokerError.t()}
   def list_topics(opts \\ []), do: Topics.list_topics(config(), opts)
+
+  @doc """
+  A single topic's per-partition offsets and broker configuration. See
+  `KafkaManager.Kafka.Topics.get_topic/2`.
+  """
+  @spec get_topic(String.t()) ::
+          {:ok, KafkaManager.Kafka.Topic.t()} | {:error, KafkaManager.Kafka.BrokerError.t()}
+  def get_topic(name), do: Topics.get_topic(config(), name)
 end
