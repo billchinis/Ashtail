@@ -1,0 +1,7 @@
+{
+  "name": "kafka_manager-screenshots",
+  "private": true,
+  "devDependencies": {
+    "playwright": "^1.48.0"
+  }
+}
