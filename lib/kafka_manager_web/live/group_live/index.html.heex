@@ -20,7 +20,7 @@
       data-group-state={group.state}
       class={state_class(group.state)}
     >
-      <td>{group.id}</td>
+      <td><.link navigate={~p"/groups/#{group.id}"}>{group.id}</.link></td>
       <td>{group.state}</td>
       <td>{group.member_count}</td>
       <td data-total-lag={group.total_lag}>{group.total_lag}</td>

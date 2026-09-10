@@ -54,4 +54,12 @@ defmodule KafkaManager.Kafka do
   @spec list_groups() ::
           {:ok, [KafkaManager.Kafka.Group.t()]} | {:error, KafkaManager.Kafka.BrokerError.t()}
   def list_groups, do: Groups.list_groups(config())
+
+  @doc """
+  A single consumer group's state, total lag and per-partition lag
+  breakdown. See `KafkaManager.Kafka.Groups.get_group/2`.
+  """
+  @spec get_group(String.t()) ::
+          {:ok, KafkaManager.Kafka.Group.t()} | {:error, KafkaManager.Kafka.BrokerError.t()}
+  def get_group(group_id), do: Groups.get_group(config(), group_id)
 end

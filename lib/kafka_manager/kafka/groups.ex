@@ -23,6 +23,53 @@ defmodule KafkaManager.Kafka.Groups do
     end
   end
 
+  @doc """
+  A single consumer group's raw state, member count, total lag and
+  per-partition lag breakdown, via the same coordinator/describe/committed
+  offsets pipeline as `list_groups/1`, scoped to one group id.
+  """
+  @spec get_group(Config.t(), String.t()) :: {:ok, Group.t()} | {:error, BrokerError.t()}
+  def get_group(%Config{} = config, group_id) when is_binary(group_id) do
+    with {:ok, groups} <- Client.list_groups(config),
+         {:ok, summary} <- find_group_summary(config, groups, group_id),
+         {:ok, [described]} <- Client.describe_groups(config, summary.coordinator, [group_id]),
+         {:ok, commits} <- Client.fetch_committed_offsets(config, group_id),
+         {:ok, metadata} <- Client.metadata(config) do
+      partitions_by_topic = partitions_by_topic(metadata)
+      pairs = committed_partition_pairs(commits, partitions_by_topic)
+
+      with {:ok, earliest} <- Client.list_offsets(config, pairs, :earliest),
+           {:ok, latest} <- Client.list_offsets(config, pairs, :latest) do
+        {:ok, build_group(described, commits, partitions_by_topic, earliest, latest)}
+      end
+    end
+  end
+
+  defp find_group_summary(config, groups, group_id) do
+    case Enum.find(groups, &(&1.id == group_id)) do
+      nil -> {:error, unknown_group_error(config, group_id)}
+      summary -> {:ok, summary}
+    end
+  end
+
+  defp unknown_group_error(config, group_id) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :unknown_group,
+      message: "Consumer group #{group_id} does not exist on this cluster."
+    }
+  end
+
+  defp committed_partition_pairs(commits, partitions_by_topic) do
+    commits
+    |> topics_committed()
+    |> Enum.uniq()
+    |> Enum.flat_map(fn topic ->
+      Enum.map(Map.get(partitions_by_topic, topic, []), &{topic, &1})
+    end)
+    |> Enum.uniq()
+  end
+
   defp describe_by_coordinator(_config, []), do: {:ok, []}
 
   defp describe_by_coordinator(config, groups) do
