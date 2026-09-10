@@ -32,7 +32,9 @@ defmodule KafkaManager.Kafka.Groups do
   def get_group(%Config{} = config, group_id) when is_binary(group_id) do
     with {:ok, groups} <- Client.list_groups(config),
          {:ok, summary} <- find_group_summary(config, groups, group_id),
-         {:ok, [described]} <- Client.describe_groups(config, summary.coordinator, [group_id]),
+         {:ok, described_list} <-
+           Client.describe_groups(config, summary.coordinator, [group_id]),
+         {:ok, described} <- require_described(config, group_id, described_list),
          {:ok, commits} <- Client.fetch_committed_offsets(config, group_id),
          {:ok, metadata} <- Client.metadata(config) do
       partitions_by_topic = partitions_by_topic(metadata)
@@ -40,10 +42,23 @@ defmodule KafkaManager.Kafka.Groups do
 
       with {:ok, earliest} <- Client.list_offsets(config, pairs, :earliest),
            {:ok, latest} <- Client.list_offsets(config, pairs, :latest) do
-        {:ok, build_group(described, commits, partitions_by_topic, earliest, latest)}
+        build_group(config, described, commits, partitions_by_topic, earliest, latest)
       end
     end
   end
+
+  # `describe_groups/3` is expected to answer with exactly one description
+  # per requested id. If the group vanished between `list_groups/1` and this
+  # call, some brokers answer with an empty list rather than a "Dead" entry;
+  # either way that must not fall through the `with` in `get_group/2` as a
+  # bare `{:ok, []}` (which does not have the shape `GroupLive.Show` expects
+  # and crashes it with a `KeyError`). Exposed (`@doc false`) so this exact
+  # translation is unit-testable without needing to force the race live.
+  @doc false
+  @spec require_described(Config.t(), String.t(), [map()]) ::
+          {:ok, map()} | {:error, BrokerError.t()}
+  def require_described(_config, _group_id, [described]), do: {:ok, described}
+  def require_described(config, group_id, []), do: {:error, unknown_group_error(config, group_id)}
 
   defp find_group_summary(config, groups, group_id) do
     case Enum.find(groups, &(&1.id == group_id)) do
@@ -107,37 +122,96 @@ defmodule KafkaManager.Kafka.Groups do
 
     with {:ok, earliest} <- Client.list_offsets(config, pairs, :earliest),
          {:ok, latest} <- Client.list_offsets(config, pairs, :latest) do
-      groups =
-        Enum.map(described, fn group ->
-          commits = Map.get(commits_by_group, group.id, %{})
-          build_group(group, commits, partitions_by_topic, earliest, latest)
-        end)
-
-      {:ok, groups}
+      reduce_ok(described, fn group ->
+        commits = Map.get(commits_by_group, group.id, %{})
+        build_group(config, group, commits, partitions_by_topic, earliest, latest)
+      end)
     end
   end
 
   defp topics_committed(commits), do: commits |> Map.keys() |> Enum.map(&elem(&1, 0))
 
-  defp build_group(group, commits, partitions_by_topic, earliest, latest) do
-    topics = commits |> topics_committed() |> Enum.uniq()
-
-    partitions =
-      for topic <- topics,
-          partition <- Map.get(partitions_by_topic, topic, []) do
-        key = {topic, partition}
-        committed = Map.get(commits, key, Map.fetch!(earliest, key))
-        latest_offset = Map.fetch!(latest, key)
-
-        %{
-          topic: topic,
-          partition: partition,
-          committed_offset: committed,
-          latest_offset: latest_offset,
-          lag: max(0, latest_offset - committed)
-        }
+  # Runs `fun` (returning `{:ok, _} | {:error, _}`) over every item,
+  # stopping at the first error, otherwise collecting the results in order.
+  defp reduce_ok(items, fun) do
+    items
+    |> Enum.reduce_while({:ok, []}, fn item, {:ok, acc} ->
+      case fun.(item) do
+        {:ok, value} -> {:cont, {:ok, [value | acc]}}
+        {:error, _} = error -> {:halt, error}
       end
-      |> Enum.sort_by(&{&1.topic, &1.partition})
+    end)
+    |> case do
+      {:ok, acc} -> {:ok, Enum.reverse(acc)}
+      {:error, _} = error -> error
+    end
+  end
+
+  # A `{topic, partition}` missing from `earliest`/`latest` (dropped by
+  # `Client.list_offsets/3` because that partition came back with a
+  # partition-level error) must not raise via `Map.fetch!/2` here in the
+  # calling process, outside `Client`'s own crash containment. It becomes a
+  # `%BrokerError{}` instead.
+  defp build_group(config, group, commits, partitions_by_topic, earliest, latest) do
+    pairs =
+      for topic <- commits |> topics_committed() |> Enum.uniq(),
+          partition <- Map.get(partitions_by_topic, topic, []),
+          do: {topic, partition}
+
+    pairs
+    |> reduce_ok(&partition_entry(config, commits, earliest, latest, &1))
+    |> case do
+      {:ok, entries} -> {:ok, group_from_partitions(group, entries)}
+      {:error, _} = error -> error
+    end
+  end
+
+  defp partition_entry(config, commits, earliest, latest, {topic, partition} = key) do
+    with {:ok, committed} <- committed_or_earliest(config, commits, earliest, key),
+         {:ok, latest_offset} <- fetch_offset(config, latest, key) do
+      {:ok,
+       %{
+         topic: topic,
+         partition: partition,
+         committed_offset: committed,
+         latest_offset: latest_offset,
+         lag: max(0, latest_offset - committed)
+       }}
+    end
+  end
+
+  defp committed_or_earliest(config, commits, earliest, key) do
+    case Map.fetch(commits, key) do
+      {:ok, committed} -> {:ok, committed}
+      :error -> fetch_offset(config, earliest, key)
+    end
+  end
+
+  # Exposed (`@doc false`) so the "missing key becomes an error, never a
+  # raise" translation is unit-testable without forcing a live topic/
+  # partition inconsistency against the broker.
+  @doc false
+  @spec fetch_offset(Config.t(), map(), {String.t(), non_neg_integer()}) ::
+          {:ok, integer()} | {:error, BrokerError.t()}
+  def fetch_offset(config, offsets, {topic, partition} = key) do
+    case Map.fetch(offsets, key) do
+      {:ok, offset} -> {:ok, offset}
+      :error -> {:error, missing_offset_error(config, topic, partition)}
+    end
+  end
+
+  defp missing_offset_error(config, topic, partition) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :missing_offset,
+      message:
+        "No offset was returned for #{topic}/#{partition}. It may have changed " <>
+          "since the group's membership was fetched."
+    }
+  end
+
+  defp group_from_partitions(group, partitions) do
+    partitions = Enum.sort_by(partitions, &{&1.topic, &1.partition})
 
     %Group{
       id: group.id,

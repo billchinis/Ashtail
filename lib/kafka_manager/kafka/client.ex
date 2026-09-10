@@ -439,9 +439,16 @@ defmodule KafkaManager.Kafka.Client do
   defp offset_time(:latest), do: -1
   defp offset_time(:earliest), do: -2
 
-  defp parse_list_offsets_response(%{responses: responses}) do
+  # A partition-level `error_code` (e.g. the partition moved leaders between
+  # `metadata/1` and this request) must never surface as an `offset: -1` for
+  # arithmetic to run on. Such a partition is simply absent from the
+  # returned map; callers (`Topics`, `Messages`, `Groups`) turn a missing
+  # key into a `%BrokerError{}` instead of computing on it.
+  @doc false
+  @spec parse_list_offsets_response(map()) :: %{{String.t(), non_neg_integer()} => integer()}
+  def parse_list_offsets_response(%{responses: responses}) do
     for %{topic: topic, partition_responses: partition_responses} <- responses,
-        %{partition: partition, offset: offset} <- partition_responses,
+        %{partition: partition, error_code: :no_error, offset: offset} <- partition_responses,
         into: %{} do
       {{topic, partition}, offset}
     end

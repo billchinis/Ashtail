@@ -26,9 +26,9 @@ defmodule KafkaManager.Kafka.Messages do
     pair = {topic, partition}
 
     with {:ok, earliest_offsets} <- Client.list_offsets(config, [pair], :earliest),
-         {:ok, latest_offsets} <- Client.list_offsets(config, [pair], :latest) do
-      earliest = Map.fetch!(earliest_offsets, pair)
-      latest = Map.fetch!(latest_offsets, pair)
+         {:ok, latest_offsets} <- Client.list_offsets(config, [pair], :latest),
+         {:ok, earliest} <- fetch_offset(config, earliest_offsets, pair),
+         {:ok, latest} <- fetch_offset(config, latest_offsets, pair) do
       start_offset = clamp(from_offset, earliest, latest)
 
       case collect(config, topic, partition, start_offset, latest, limit) do
@@ -36,6 +36,33 @@ defmodule KafkaManager.Kafka.Messages do
         {:error, _} = error -> error
       end
     end
+  end
+
+  # A `{topic, partition}` missing from a batched offsets map (dropped by
+  # `Client.list_offsets/3` because that partition came back with a
+  # partition-level error, e.g. the topic was deleted mid-request) must not
+  # raise via `Map.fetch!/2` here in the calling process, outside `Client`'s
+  # own crash containment. It becomes a `%BrokerError{}` instead. Exposed
+  # (`@doc false`) so this translation is unit-testable without forcing a
+  # live topic deletion mid-request against the broker.
+  @doc false
+  @spec fetch_offset(Config.t(), map(), {String.t(), non_neg_integer()}) ::
+          {:ok, integer()} | {:error, BrokerError.t()}
+  def fetch_offset(config, offsets, {topic, partition} = key) do
+    case Map.fetch(offsets, key) do
+      {:ok, offset} -> {:ok, offset}
+      :error -> {:error, missing_offset_error(config, topic, partition)}
+    end
+  end
+
+  defp missing_offset_error(config, topic, partition) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :missing_offset,
+      message:
+        "No offset was returned for #{topic}/#{partition}. It may have changed " <>
+          "since the partition's offsets were fetched."
+    }
   end
 
   defp collect(config, topic, partition, from_offset, latest, limit) do

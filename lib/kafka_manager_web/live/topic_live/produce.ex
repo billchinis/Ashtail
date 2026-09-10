@@ -52,15 +52,27 @@ defmodule KafkaManagerWeb.TopicLive.Produce do
   end
 
   def handle_event("remove_header", %{"row" => row}, socket) do
-    id = String.to_integer(row)
-    rows = socket.assigns.header_rows
-    rows = if length(rows) > 1, do: List.delete(rows, id), else: rows
-
-    {:noreply, assign(socket, header_rows: rows)}
+    {:noreply, remove_header_row(socket, row)}
   end
 
   def handle_event("produce", %{"message" => params}, socket) do
     {:noreply, produce(socket, params)}
+  end
+
+  # A client-supplied row id (`phx-value-row`) that is not a valid integer
+  # must not crash the page via `String.to_integer/1`: it simply cannot
+  # match any row, the same as a row id that is a real integer but not
+  # currently in `header_rows`.
+  defp remove_header_row(socket, row) do
+    case Integer.parse(row) do
+      {id, ""} ->
+        rows = socket.assigns.header_rows
+        rows = if length(rows) > 1, do: List.delete(rows, id), else: rows
+        assign(socket, header_rows: rows)
+
+      _ ->
+        socket
+    end
   end
 
   defp fetch_topic(socket, topic) do

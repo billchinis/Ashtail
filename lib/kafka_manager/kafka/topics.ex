@@ -128,29 +128,83 @@ defmodule KafkaManager.Kafka.Topics do
 
     with {:ok, earliest} <- Client.list_offsets(config, pairs, :earliest),
          {:ok, latest} <- Client.list_offsets(config, pairs, :latest) do
-      {:ok, Enum.map(topics, &attach_topic_offsets(&1, earliest, latest))}
+      reduce_ok(topics, &attach_topic_offsets(config, &1, earliest, latest))
     end
   end
 
-  defp attach_topic_offsets(topic, earliest, latest) do
-    partitions =
-      Enum.map(topic.partitions, fn partition ->
-        key = {topic.name, partition.id}
-        partition_earliest = Map.fetch!(earliest, key)
-        partition_latest = Map.fetch!(latest, key)
+  # A `{topic, partition}` missing from `earliest`/`latest` (dropped by
+  # `Client.list_offsets/3` because that partition came back with a
+  # partition-level error, e.g. the topic was deleted mid-request) must not
+  # raise via `Map.fetch!/2` here in the calling process, outside `Client`'s
+  # own crash containment. It becomes a `%BrokerError{}` instead.
+  defp attach_topic_offsets(config, topic, earliest, latest) do
+    topic.partitions
+    |> reduce_ok(&attach_partition_offsets(config, &1, topic.name, earliest, latest))
+    |> case do
+      {:ok, partitions} ->
+        {:ok,
+         %Topic{
+           topic
+           | partitions: partitions,
+             message_count: Enum.sum(Enum.map(partitions, & &1.message_count))
+         }}
 
-        %Partition{
-          partition
-          | earliest: partition_earliest,
-            latest: partition_latest,
-            message_count: partition_latest - partition_earliest
-        }
-      end)
+      {:error, _} = error ->
+        error
+    end
+  end
 
-    %Topic{
-      topic
-      | partitions: partitions,
-        message_count: Enum.sum(Enum.map(partitions, & &1.message_count))
+  defp attach_partition_offsets(config, partition, topic_name, earliest, latest) do
+    key = {topic_name, partition.id}
+
+    with {:ok, partition_earliest} <- fetch_offset(config, earliest, key),
+         {:ok, partition_latest} <- fetch_offset(config, latest, key) do
+      {:ok,
+       %Partition{
+         partition
+         | earliest: partition_earliest,
+           latest: partition_latest,
+           message_count: partition_latest - partition_earliest
+       }}
+    end
+  end
+
+  # Runs `fun` (returning `{:ok, _} | {:error, _}`) over every item,
+  # stopping at the first error, otherwise collecting the results in order.
+  defp reduce_ok(items, fun) do
+    items
+    |> Enum.reduce_while({:ok, []}, fn item, {:ok, acc} ->
+      case fun.(item) do
+        {:ok, value} -> {:cont, {:ok, [value | acc]}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+    |> case do
+      {:ok, acc} -> {:ok, Enum.reverse(acc)}
+      {:error, _} = error -> error
+    end
+  end
+
+  # Exposed (`@doc false`) so the "missing key becomes an error, never a
+  # raise" translation is unit-testable without forcing a live topic
+  # deletion mid-request against the broker.
+  @doc false
+  @spec fetch_offset(Config.t(), map(), {String.t(), non_neg_integer()}) ::
+          {:ok, integer()} | {:error, BrokerError.t()}
+  def fetch_offset(config, offsets, {topic, partition} = key) do
+    case Map.fetch(offsets, key) do
+      {:ok, offset} -> {:ok, offset}
+      :error -> {:error, missing_offset_error(config, topic, partition)}
+    end
+  end
+
+  defp missing_offset_error(config, topic, partition) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :missing_offset,
+      message:
+        "No offset was returned for #{topic}/#{partition}. It may have changed " <>
+          "since the topic's metadata was fetched."
     }
   end
 

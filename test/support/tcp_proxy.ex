@@ -36,7 +36,7 @@ defmodule KafkaManager.TcpProxy do
     owner = self()
     spawn(fn -> accept_loop(listen_socket, host, upstream_port, owner) end)
 
-    {:ok, %{listen_socket: listen_socket, sockets: []}}
+    {:ok, %{listen_socket: listen_socket, sockets: [], cut?: false}}
   end
 
   @impl true
@@ -48,10 +48,21 @@ defmodule KafkaManager.TcpProxy do
   def handle_call(:cut, _from, state) do
     close_quietly(state.listen_socket)
     Enum.each(state.sockets, &close_quietly/1)
-    {:reply, :ok, %{state | sockets: []}}
+    {:reply, :ok, %{state | sockets: [], cut?: true}}
   end
 
+  # `register_sockets` is an async cast, so it can be processed before or
+  # after a `cut` call sent concurrently by the test. If `cut` was already
+  # handled (`cut?: true`), a connection that finished accepting/connecting
+  # just after it must be closed immediately instead of being stored and
+  # left open forever: `cut` already closed everything registered *before*
+  # it ran, and nothing will ever close this pair for it.
   @impl true
+  def handle_cast({:register_sockets, sockets}, %{cut?: true} = state) do
+    Enum.each(sockets, &close_quietly/1)
+    {:noreply, state}
+  end
+
   def handle_cast({:register_sockets, sockets}, state) do
     {:noreply, %{state | sockets: sockets ++ state.sockets}}
   end
