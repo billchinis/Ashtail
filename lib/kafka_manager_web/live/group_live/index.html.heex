@@ -1,64 +1,68 @@
 <.broker_error error={@broker_error} />
 
-<h1>Consumer groups</h1>
+<h1 class="text-lg font-semibold mb-4">Consumer groups</h1>
 
-<table>
-  <thead>
-    <tr>
-      <th>Group</th>
-      <th>State</th>
-      <th>Members</th>
-      <th>Total lag</th>
-      <th></th>
-    </tr>
-  </thead>
-  <tbody id="groups" phx-update="stream">
-    <tr
-      :for={{dom_id, group} <- @streams.groups}
-      id={dom_id}
-      data-group={group.id}
-      data-group-state={group.state}
-      class={state_class(group.state)}
-    >
-      <td><.link navigate={~p"/groups/#{group.id}"}>{group.id}</.link></td>
-      <td>{group.state}</td>
-      <td>{group.member_count}</td>
-      <td data-total-lag={group.total_lag}>{group.total_lag}</td>
-      <td>
-        <button
-          :if={not group.expanded?}
-          type="button"
-          data-expand-group
-          phx-click="expand_group"
-          phx-value-group={group.id}
-        >
-          Expand
-        </button>
-        <button
-          :if={group.expanded?}
-          type="button"
-          data-collapse-group
-          phx-click="collapse_group"
-          phx-value-group={group.id}
-        >
-          Collapse
-        </button>
-        <table :if={group.expanded?} data-group-partitions>
-          <tbody>
-            <tr
-              :for={p <- group.partitions}
-              data-topic={p.topic}
-              data-partition={p.partition}
-            >
-              <td>{p.topic}</td>
-              <td>{p.partition}</td>
-              <td>{p.committed_offset}</td>
-              <td>{p.latest_offset}</td>
-              <td data-lag={p.lag}>{p.lag}</td>
-            </tr>
-          </tbody>
-        </table>
-      </td>
-    </tr>
-  </tbody>
-</table>
+<div class="overflow-x-auto">
+  <table class="table table-zebra min-w-[640px]">
+    <thead>
+      <tr>
+        <th>Group</th>
+        <th>State</th>
+        <th>Members</th>
+        <th>Total lag</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="groups" phx-update="stream">
+      <tr
+        :for={{dom_id, group} <- @streams.groups}
+        id={dom_id}
+        data-group={group.id}
+        data-group-state={group.state}
+        class={state_class(group.state)}
+      >
+        <td class="min-w-32 break-all">
+          <.link navigate={~p"/groups/#{group.id}"} class="link">{group.id}</.link>
+        </td>
+        <td class="whitespace-nowrap">{group.state}</td>
+        <td class="whitespace-nowrap">{group.member_count}</td>
+        <td class="whitespace-nowrap" data-total-lag={group.total_lag}>{group.total_lag}</td>
+        <td class="whitespace-nowrap">
+          <button
+            :if={not group.expanded?}
+            type="button"
+            data-expand-group
+            class="btn btn-xs btn-soft"
+            phx-click="expand_group"
+            phx-value-group={group.id}
+          >
+            Expand
+          </button>
+          <button
+            :if={group.expanded?}
+            type="button"
+            data-collapse-group
+            class="btn btn-xs btn-soft"
+            phx-click="collapse_group"
+            phx-value-group={group.id}
+          >
+            Collapse
+          </button>
+          <div :if={group.expanded?} class="overflow-x-auto mt-2">
+            <table data-group-partitions class="table table-zebra table-xs min-w-[420px]">
+              <tbody>
+                <tr :for={p <- group.partitions} data-topic={p.topic} data-partition={p.partition}>
+                  <td class="min-w-24 max-w-xs break-all">{p.topic}</td>
+                  <td class="whitespace-nowrap">{p.partition}</td>
+                  <td class="whitespace-nowrap">{p.committed_offset}</td>
+                  <td class="whitespace-nowrap">{p.latest_offset}</td>
+                  <td class="whitespace-nowrap" data-lag={p.lag}>{p.lag}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+</div>

@@ -1,35 +1,37 @@
 <.broker_error error={@broker_error} />
 
-<h1>Consumer group {@group_id}</h1>
+<h1 class="text-lg font-semibold break-all">Consumer group {@group_id}</h1>
 
-<h2 :if={@group}>
+<h2 :if={@group} class="text-sm text-base-content/70 mb-4">
   State: {@group.state} &middot; Members: {@group.member_count} &middot; Total lag: {@group.total_lag}
 </h2>
 
-<table>
-  <thead>
-    <tr>
-      <th>Topic</th>
-      <th>Partition</th>
-      <th>Committed offset</th>
-      <th>Latest offset</th>
-      <th>Lag</th>
-    </tr>
-  </thead>
-  <tbody id="group_partitions" phx-update="stream">
-    <tr
-      :for={{dom_id, p} <- @streams.group_partitions}
-      id={dom_id}
-      data-topic={p.topic}
-      data-partition={p.partition}
-      data-committed-offset={p.committed_offset}
-      data-lag={p.lag}
-    >
-      <td>{p.topic}</td>
-      <td>{p.partition}</td>
-      <td>{p.committed_offset}</td>
-      <td>{p.latest_offset}</td>
-      <td>{p.lag}</td>
-    </tr>
-  </tbody>
-</table>
+<div class="overflow-x-auto">
+  <table class="table table-zebra min-w-[480px]">
+    <thead>
+      <tr>
+        <th>Topic</th>
+        <th>Partition</th>
+        <th>Committed offset</th>
+        <th>Latest offset</th>
+        <th>Lag</th>
+      </tr>
+    </thead>
+    <tbody id="group_partitions" phx-update="stream">
+      <tr
+        :for={{dom_id, p} <- @streams.group_partitions}
+        id={dom_id}
+        data-topic={p.topic}
+        data-partition={p.partition}
+        data-committed-offset={p.committed_offset}
+        data-lag={p.lag}
+      >
+        <td class="min-w-24 max-w-xs break-all">{p.topic}</td>
+        <td class="whitespace-nowrap">{p.partition}</td>
+        <td class="whitespace-nowrap">{p.committed_offset}</td>
+        <td class="whitespace-nowrap">{p.latest_offset}</td>
+        <td class="whitespace-nowrap">{p.lag}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

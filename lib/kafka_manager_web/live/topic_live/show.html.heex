@@ -1,47 +1,55 @@
 <.broker_error error={@broker_error} />
 
-<h1>Topic {@topic_name}</h1>
+<h1 class="text-lg font-semibold break-all">Topic {@topic_name}</h1>
 
-<h2>Partitions</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Partition</th>
-      <th>Leader</th>
-      <th>Replicas</th>
-      <th>Earliest</th>
-      <th>Latest</th>
-    </tr>
-  </thead>
-  <tbody id="partitions" phx-update="stream">
-    <tr
-      :for={{dom_id, partition} <- @streams.partitions}
-      id={dom_id}
-      data-partition={partition.id}
-      data-earliest={partition.earliest}
-      data-latest={partition.latest}
-    >
-      <td>{partition.id}</td>
-      <td>{partition.leader}</td>
-      <td>{Enum.join(partition.replicas, ",")}</td>
-      <td>{partition.earliest}</td>
-      <td>{partition.latest}</td>
-    </tr>
-  </tbody>
-</table>
+<h2 class="text-base font-semibold mt-6 mb-2">Partitions</h2>
+<div class="overflow-x-auto">
+  <table class="table table-zebra">
+    <thead>
+      <tr>
+        <th>Partition</th>
+        <th>Leader</th>
+        <th>Replicas</th>
+        <th>Earliest</th>
+        <th>Latest</th>
+      </tr>
+    </thead>
+    <tbody id="partitions" phx-update="stream">
+      <tr
+        :for={{dom_id, partition} <- @streams.partitions}
+        id={dom_id}
+        data-partition={partition.id}
+        data-earliest={partition.earliest}
+        data-latest={partition.latest}
+      >
+        <td class="whitespace-nowrap">{partition.id}</td>
+        <td class="whitespace-nowrap">{partition.leader}</td>
+        <td class="whitespace-nowrap">{Enum.join(partition.replicas, ",")}</td>
+        <td class="whitespace-nowrap">{partition.earliest}</td>
+        <td class="whitespace-nowrap">{partition.latest}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-<h2>Configuration</h2>
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Value</th>
-    </tr>
-  </thead>
-  <tbody id="topic_configs" phx-update="stream">
-    <tr :for={{dom_id, entry} <- @streams.topic_configs} id={dom_id} data-config-name={entry.name}>
-      <td>{entry.name}</td>
-      <td>{entry.value}</td>
-    </tr>
-  </tbody>
-</table>
+<h2 class="text-base font-semibold mt-6 mb-2">Configuration</h2>
+<div class="overflow-x-auto">
+  <table class="table table-zebra min-w-[480px]">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Value</th>
+      </tr>
+    </thead>
+    <tbody id="topic_configs" phx-update="stream">
+      <tr
+        :for={{dom_id, entry} <- @streams.topic_configs}
+        id={dom_id}
+        data-config-name={entry.name}
+      >
+        <td class="min-w-40 max-w-xs break-all">{entry.name}</td>
+        <td class="min-w-24 max-w-xs break-all">{entry.value}</td>
+      </tr>
+    </tbody>
+  </table>
+</div>

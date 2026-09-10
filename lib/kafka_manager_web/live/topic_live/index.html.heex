@@ -1,44 +1,56 @@
 <.broker_error error={@broker_error} />
 
-<h1>Topics</h1>
-<p>{@total} topics</p>
+<h1 class="text-lg font-semibold">Topics</h1>
+<p class="text-sm text-base-content/70 mb-4">{@total} topics</p>
 
-<form id="page-size-form" data-page-size-form phx-change="page_size">
-  <label for="page_size">Page size</label>
-  <select id="page_size" name="page_size">
-    <option value="20" selected={@page_size == 20}>20</option>
-    <option value="50" selected={@page_size == 50}>50</option>
-  </select>
-</form>
+<div class="flex flex-wrap items-end gap-4 mb-4">
+  <form id="page-size-form" data-page-size-form phx-change="page_size" class="fieldset">
+    <label for="page_size" class="label">Page size</label>
+    <select id="page_size" name="page_size" class="select select-sm">
+      <option value="20" selected={@page_size == 20}>20</option>
+      <option value="50" selected={@page_size == 50}>50</option>
+    </select>
+  </form>
 
-<form id="search-form" data-search-form phx-change="search">
-  <label for="q">Search</label>
-  <input type="text" id="q" name="q" value={@search} phx-debounce="200" />
-</form>
+  <form id="search-form" data-search-form phx-change="search" class="fieldset">
+    <label for="q" class="label">Search</label>
+    <input
+      type="text"
+      id="q"
+      name="q"
+      value={@search}
+      phx-debounce="200"
+      class="input input-sm"
+    />
+  </form>
+</div>
 
-<table>
-  <thead>
-    <tr>
-      <th>Name</th>
-      <th>Partitions</th>
-      <th>Replication</th>
-      <th>Messages</th>
-    </tr>
-  </thead>
-  <tbody id="topics" phx-update="stream">
-    <tr :for={{dom_id, topic} <- @streams.topics} id={dom_id} data-topic={topic.name}>
-      <td>{topic.name}</td>
-      <td>{topic.partition_count} partitions</td>
-      <td>RF {topic.replication_factor}</td>
-      <td>{topic.message_count} messages</td>
-    </tr>
-  </tbody>
-</table>
+<div class="overflow-x-auto">
+  <table class="table table-zebra min-w-[640px]">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Partitions</th>
+        <th>Replication</th>
+        <th>Messages</th>
+      </tr>
+    </thead>
+    <tbody id="topics" phx-update="stream">
+      <tr :for={{dom_id, topic} <- @streams.topics} id={dom_id} data-topic={topic.name}>
+        <td class="min-w-40 max-w-xs break-all">{topic.name}</td>
+        <td class="whitespace-nowrap">{topic.partition_count} partitions</td>
+        <td class="whitespace-nowrap">RF {topic.replication_factor}</td>
+        <td class="whitespace-nowrap">{topic.message_count} messages</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
 
-<div>
+<div class="flex items-center gap-4 mt-4">
   <.link
     :if={@page > 1}
     data-prev-page
+    class="btn btn-sm btn-soft"
     patch={page_path(@page - 1, @page_size, @search)}
   >
     Previous page
@@ -47,6 +59,7 @@
   <.link
     :if={@page < @page_count}
     data-next-page
+    class="btn btn-sm btn-soft"
     patch={page_path(@page + 1, @page_size, @search)}
   >
     Next page

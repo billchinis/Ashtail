@@ -15,8 +15,8 @@ defmodule KafkaManagerWeb.MessageComponents do
 
   def message_key(assigns) do
     ~H"""
-    <span :if={@key == nil} data-null-key>&lt;null&gt;</span>
-    {if @key != nil, do: @key}
+    <span :if={@key == nil} data-null-key class="badge badge-ghost badge-sm">&lt;null&gt;</span>
+    <span :if={@key != nil} class="break-all">{@key}</span>
     """
   end
 
@@ -33,22 +33,28 @@ defmodule KafkaManagerWeb.MessageComponents do
     assigns = assign(assigns, :long?, String.length(assigns.value) > @truncate_length)
 
     ~H"""
-    <span :if={not @long?}>{@value}</span>
-    <span :if={@long? and @expanded?} data-value-full>{@value}</span>
+    <span :if={not @long?} class="break-all whitespace-pre-wrap">{@value}</span>
+    <span :if={@long? and @expanded?} data-value-full class="break-all whitespace-pre-wrap">{@value}</span>
     <button
       :if={@long? and @expanded?}
       type="button"
       data-collapse-value
+      class="btn btn-xs btn-soft mt-1"
       phx-click="collapse_value"
       phx-value-offset={@offset}
     >
       Collapse
     </button>
-    <span :if={@long? and not @expanded?} data-value-preview>{truncate(@value)}</span>
+    <span
+      :if={@long? and not @expanded?}
+      data-value-preview
+      class="break-all whitespace-pre-wrap"
+    >{truncate(@value)}</span>
     <button
       :if={@long? and not @expanded?}
       type="button"
       data-expand-value
+      class="btn btn-xs btn-soft mt-1"
       phx-click="expand_value"
       phx-value-offset={@offset}
     >
@@ -66,7 +72,12 @@ defmodule KafkaManagerWeb.MessageComponents do
 
   def message_headers(assigns) do
     ~H"""
-    <span :for={{name, value} <- @headers} class="message-header">{name}={value}</span>
+    <div class="flex flex-wrap gap-1">
+      <span
+        :for={{name, value} <- @headers}
+        class="message-header inline-block rounded border border-base-300 bg-base-200 px-1.5 py-0.5 text-xs break-all"
+      >{name}={value}</span>
+    </div>
     """
   end
 end
