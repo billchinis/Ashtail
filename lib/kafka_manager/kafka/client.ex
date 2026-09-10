@@ -26,6 +26,11 @@ defmodule KafkaManager.Kafka.Client do
     Record.extract(:kafka_message, from_lib: "brod/include/brod.hrl")
   )
 
+  Record.defrecordp(
+    :brod_cg,
+    Record.extract(:brod_cg, from_lib: "brod/include/brod.hrl")
+  )
+
   @task_supervisor KafkaManager.Kafka.TaskSupervisor
   @deadline_slack_ms 1_000
   @list_offsets_vsn 1
@@ -252,6 +257,111 @@ defmodule KafkaManager.Kafka.Client do
 
   defp parse_describe_configs_response(%{resources: [%{error_code: error_code}]}) do
     {:error, error_code}
+  end
+
+  @doc """
+  Lists every consumer group on the cluster, via `:brod.list_all_groups/2`.
+  Each entry carries the coordinator endpoint that reported it (that broker
+  is where the group is actually coordinated), which `describe_groups/3` and
+  `fetch_committed_offsets/3` need next.
+  """
+  @spec list_groups(Config.t()) ::
+          {:ok, [%{id: String.t(), protocol_type: String.t(), coordinator: term()}]}
+          | {:error, BrokerError.t()}
+  def list_groups(%Config{} = config) do
+    run(config, fn -> fetch_list_groups(config) end)
+  end
+
+  defp fetch_list_groups(config) do
+    config
+    |> endpoints()
+    |> :brod.list_all_groups(conn_config(config))
+    |> collect_groups(config)
+  end
+
+  defp collect_groups(results, config) do
+    Enum.reduce_while(results, {:ok, []}, fn {endpoint, groups_or_error}, {:ok, acc} ->
+      case groups_or_error do
+        {:error, reason} ->
+          {:halt, {:error, broker_error(config, reason)}}
+
+        groups when is_list(groups) ->
+          {:cont, {:ok, acc ++ Enum.map(groups, &group_summary(&1, endpoint))}}
+      end
+    end)
+  end
+
+  defp group_summary(cg, endpoint) do
+    %{
+      id: brod_cg(cg, :id),
+      protocol_type: brod_cg(cg, :protocol_type),
+      coordinator: endpoint
+    }
+  end
+
+  @doc """
+  Describes the given group ids against the coordinator endpoint they were
+  found on (the `coordinator` hint from `list_groups/1`), via
+  `:brod.describe_groups/3`.
+  """
+  @spec describe_groups(Config.t(), term(), [String.t()]) ::
+          {:ok,
+           [
+             %{
+               id: String.t(),
+               state: String.t(),
+               protocol_type: String.t(),
+               member_count: non_neg_integer()
+             }
+           ]}
+          | {:error, BrokerError.t()}
+  def describe_groups(%Config{} = config, coordinator, group_ids) when is_list(group_ids) do
+    run(config, fn -> fetch_describe_groups(config, coordinator, group_ids) end)
+  end
+
+  defp fetch_describe_groups(config, coordinator, group_ids) do
+    case :brod.describe_groups(coordinator, conn_config(config), group_ids) do
+      {:ok, groups} -> {:ok, Enum.map(groups, &described_group/1)}
+      {:error, reason} -> {:error, broker_error(config, reason)}
+    end
+  end
+
+  defp described_group(%{
+         group_id: id,
+         group_state: state,
+         protocol_type: protocol_type,
+         members: members
+       }) do
+    %{id: id, state: state, protocol_type: protocol_type, member_count: length(members)}
+  end
+
+  @doc """
+  Committed offsets for every partition a group has committed against, via
+  `:brod.fetch_committed_offsets/3`. A partition the group never committed
+  to is simply absent from the returned map — the caller decides how to
+  treat that (AC-11/AC-12 use the partition's earliest offset).
+  """
+  @spec fetch_committed_offsets(Config.t(), String.t()) ::
+          {:ok, %{{String.t(), non_neg_integer()} => integer()}} | {:error, BrokerError.t()}
+  def fetch_committed_offsets(%Config{} = config, group_id) when is_binary(group_id) do
+    run(config, fn -> do_fetch_committed_offsets(config, group_id) end)
+  end
+
+  defp do_fetch_committed_offsets(config, group_id) do
+    case :brod.fetch_committed_offsets(endpoints(config), conn_config(config), group_id) do
+      {:ok, topics} -> {:ok, committed_offsets_map(topics)}
+      {:error, reason} -> {:error, broker_error(config, reason)}
+    end
+  end
+
+  defp committed_offsets_map(topics) do
+    for %{name: topic, partitions: partitions} <- topics,
+        %{partition_index: partition, error_code: :no_error, committed_offset: offset} <-
+          partitions,
+        offset >= 0,
+        into: %{} do
+      {{topic, partition}, offset}
+    end
   end
 
   defp fetch_metadata(config, topics) do

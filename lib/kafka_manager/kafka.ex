@@ -6,7 +6,7 @@ defmodule KafkaManager.Kafka do
   something new, add a function here rather than reaching past it.
   """
 
-  alias KafkaManager.Kafka.{Messages, Topics}
+  alias KafkaManager.Kafka.{Groups, Messages, Topics}
 
   @doc """
   The cluster connection settings resolved at boot by
@@ -46,4 +46,12 @@ defmodule KafkaManager.Kafka do
   @spec produce(String.t(), non_neg_integer() | nil, map()) ::
           {:ok, map()} | {:error, KafkaManager.Kafka.BrokerError.t()}
   def produce(topic, partition, attrs), do: Messages.produce(config(), topic, partition, attrs)
+
+  @doc """
+  Lists every consumer group with its state, total lag and per-partition lag
+  breakdown. See `KafkaManager.Kafka.Groups.list_groups/1`.
+  """
+  @spec list_groups() ::
+          {:ok, [KafkaManager.Kafka.Group.t()]} | {:error, KafkaManager.Kafka.BrokerError.t()}
+  def list_groups, do: Groups.list_groups(config())
 end

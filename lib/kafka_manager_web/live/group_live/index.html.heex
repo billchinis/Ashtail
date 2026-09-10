@@ -1,0 +1,64 @@
+<.broker_error error={@broker_error} />
+
+<h1>Consumer groups</h1>
+
+<table>
+  <thead>
+    <tr>
+      <th>Group</th>
+      <th>State</th>
+      <th>Members</th>
+      <th>Total lag</th>
+      <th></th>
+    </tr>
+  </thead>
+  <tbody id="groups" phx-update="stream">
+    <tr
+      :for={{dom_id, group} <- @streams.groups}
+      id={dom_id}
+      data-group={group.id}
+      data-group-state={group.state}
+      class={state_class(group.state)}
+    >
+      <td>{group.id}</td>
+      <td>{group.state}</td>
+      <td>{group.member_count}</td>
+      <td data-total-lag={group.total_lag}>{group.total_lag}</td>
+      <td>
+        <button
+          :if={not group.expanded?}
+          type="button"
+          data-expand-group
+          phx-click="expand_group"
+          phx-value-group={group.id}
+        >
+          Expand
+        </button>
+        <button
+          :if={group.expanded?}
+          type="button"
+          data-collapse-group
+          phx-click="collapse_group"
+          phx-value-group={group.id}
+        >
+          Collapse
+        </button>
+        <table :if={group.expanded?} data-group-partitions>
+          <tbody>
+            <tr
+              :for={p <- group.partitions}
+              data-topic={p.topic}
+              data-partition={p.partition}
+            >
+              <td>{p.topic}</td>
+              <td>{p.partition}</td>
+              <td>{p.committed_offset}</td>
+              <td>{p.latest_offset}</td>
+              <td data-lag={p.lag}>{p.lag}</td>
+            </tr>
+          </tbody>
+        </table>
+      </td>
+    </tr>
+  </tbody>
+</table>

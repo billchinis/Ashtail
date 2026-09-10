@@ -21,6 +21,7 @@ defmodule KafkaManagerWeb.Router do
     live "/topics/:topic", TopicLive.Show, :show
     live "/topics/:topic/produce", TopicLive.Produce, :produce
     live "/topics/:topic/partitions/:partition", MessageLive.Index, :index
+    live "/groups", GroupLive.Index, :index
   end
 
   # Other scopes may use custom stacks.
