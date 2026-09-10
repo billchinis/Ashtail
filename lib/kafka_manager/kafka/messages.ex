@@ -27,14 +27,28 @@ defmodule KafkaManager.Kafka.Messages do
 
     with {:ok, earliest_offsets} <- Client.list_offsets(config, [pair], :earliest),
          {:ok, latest_offsets} <- Client.list_offsets(config, [pair], :latest),
-         {:ok, earliest} <- fetch_offset(config, earliest_offsets, pair),
-         {:ok, latest} <- fetch_offset(config, latest_offsets, pair) do
+         {:ok, {earliest, latest}} <-
+           resolve_bounds(config, pair, earliest_offsets, latest_offsets) do
       start_offset = clamp(from_offset, earliest, latest)
 
       case collect(config, topic, partition, start_offset, latest, limit) do
         {:ok, messages} -> {:ok, %{messages: messages, earliest: earliest, latest: latest}}
         {:error, _} = error -> error
       end
+    end
+  end
+
+  # The actual call site of `fetch_offset/3` inside `fetch_messages/5`.
+  # Exposed (`@doc false`) so the "missing key becomes an error, never a
+  # raise" translation is unit-testable with a fabricated offsets map at the
+  # caller, not just on the leaf helper itself.
+  @doc false
+  @spec resolve_bounds(Config.t(), {String.t(), non_neg_integer()}, map(), map()) ::
+          {:ok, {integer(), integer()}} | {:error, BrokerError.t()}
+  def resolve_bounds(config, pair, earliest_offsets, latest_offsets) do
+    with {:ok, earliest} <- fetch_offset(config, earliest_offsets, pair),
+         {:ok, latest} <- fetch_offset(config, latest_offsets, pair) do
+      {:ok, {earliest, latest}}
     end
   end
 

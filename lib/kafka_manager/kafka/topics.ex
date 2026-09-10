@@ -154,7 +154,14 @@ defmodule KafkaManager.Kafka.Topics do
     end
   end
 
-  defp attach_partition_offsets(config, partition, topic_name, earliest, latest) do
+  # Exposed (`@doc false`) so the "missing key becomes an error, never a
+  # raise" translation is unit-testable at the actual call site of
+  # `fetch_offset/3`, with a fabricated offsets map, not just on the leaf
+  # helper itself.
+  @doc false
+  @spec attach_partition_offsets(Config.t(), Partition.t(), String.t(), map(), map()) ::
+          {:ok, Partition.t()} | {:error, BrokerError.t()}
+  def attach_partition_offsets(config, partition, topic_name, earliest, latest) do
     key = {topic_name, partition.id}
 
     with {:ok, partition_earliest} <- fetch_offset(config, earliest, key),

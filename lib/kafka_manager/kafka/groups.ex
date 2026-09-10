@@ -52,13 +52,30 @@ defmodule KafkaManager.Kafka.Groups do
   # call, some brokers answer with an empty list rather than a "Dead" entry;
   # either way that must not fall through the `with` in `get_group/2` as a
   # bare `{:ok, []}` (which does not have the shape `GroupLive.Show` expects
-  # and crashes it with a `KeyError`). Exposed (`@doc false`) so this exact
-  # translation is unit-testable without needing to force the race live.
+  # and crashes it with a `KeyError`). A broker answering with two or more
+  # entries for one requested id is just as unexpected and must not raise a
+  # `FunctionClauseError` in the LiveView process either. Exposed
+  # (`@doc false`) so this exact translation is unit-testable without
+  # needing to force the race live.
   @doc false
   @spec require_described(Config.t(), String.t(), [map()]) ::
           {:ok, map()} | {:error, BrokerError.t()}
   def require_described(_config, _group_id, [described]), do: {:ok, described}
   def require_described(config, group_id, []), do: {:error, unknown_group_error(config, group_id)}
+
+  def require_described(config, group_id, described) when is_list(described) do
+    {:error, unexpected_describe_response_error(config, group_id, described)}
+  end
+
+  defp unexpected_describe_response_error(config, group_id, described) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :unexpected_response,
+      message:
+        "The broker returned #{length(described)} descriptions for consumer group " <>
+          "#{group_id}, expected exactly one."
+    }
+  end
 
   defp find_group_summary(config, groups, group_id) do
     case Enum.find(groups, &(&1.id == group_id)) do
@@ -166,7 +183,14 @@ defmodule KafkaManager.Kafka.Groups do
     end
   end
 
-  defp partition_entry(config, commits, earliest, latest, {topic, partition} = key) do
+  # Exposed (`@doc false`) so the "missing key becomes an error, never a
+  # raise" translation is unit-testable at the actual call site of
+  # `fetch_offset/3`, with a fabricated offsets map, not just on the leaf
+  # helper itself.
+  @doc false
+  @spec partition_entry(Config.t(), map(), map(), map(), {String.t(), non_neg_integer()}) ::
+          {:ok, map()} | {:error, BrokerError.t()}
+  def partition_entry(config, commits, earliest, latest, {topic, partition} = key) do
     with {:ok, committed} <- committed_or_earliest(config, commits, earliest, key),
          {:ok, latest_offset} <- fetch_offset(config, latest, key) do
       {:ok,
