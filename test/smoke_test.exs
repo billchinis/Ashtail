@@ -12,7 +12,7 @@ defmodule KafkaManagerWeb.SmokeTest do
   alias KafkaManagerWeb.RouteList
 
   @params RouteList.params()
-  @routes RouteList.routes(@params)
+  @routes RouteList.all_routes(@params)
 
   test "there is at least one route to smoke" do
     refute Enum.empty?(@routes)

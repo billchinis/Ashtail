@@ -18,7 +18,7 @@ defmodule Mix.Tasks.Screenshots do
     ensure_playwright!()
     start_server!()
 
-    routes = KafkaManagerWeb.RouteList.paths()
+    routes = KafkaManagerWeb.RouteList.all_paths()
     File.rm_rf!(@out_dir)
 
     env = [

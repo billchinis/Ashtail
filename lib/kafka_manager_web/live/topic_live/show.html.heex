@@ -2,6 +2,14 @@
 
 <h1 class="text-lg font-semibold break-all">Topic {@topic_name}</h1>
 
+<.link
+  navigate={~p"/topics/#{@topic_name}/produce"}
+  data-produce-link
+  class="btn btn-sm btn-primary"
+>
+  Produce message
+</.link>
+
 <h2 class="text-base font-semibold mt-6 mb-2">Partitions</h2>
 <div class="overflow-x-auto">
   <table class="table table-zebra">
@@ -22,7 +30,11 @@
         data-earliest={partition.earliest}
         data-latest={partition.latest}
       >
-        <td class="whitespace-nowrap">{partition.id}</td>
+        <td class="whitespace-nowrap">
+          <.link navigate={~p"/topics/#{@topic_name}/partitions/#{partition.id}"} class="link">
+            {partition.id}
+          </.link>
+        </td>
         <td class="whitespace-nowrap">{partition.leader}</td>
         <td class="whitespace-nowrap">{Enum.join(partition.replicas, ",")}</td>
         <td class="whitespace-nowrap">{partition.earliest}</td>

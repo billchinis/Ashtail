@@ -37,7 +37,9 @@
     </thead>
     <tbody id="topics" phx-update="stream">
       <tr :for={{dom_id, topic} <- @streams.topics} id={dom_id} data-topic={topic.name}>
-        <td class="min-w-40 max-w-xs break-all">{topic.name}</td>
+        <td class="min-w-40 max-w-xs break-all">
+          <.link navigate={~p"/topics/#{topic.name}"} class="link">{topic.name}</.link>
+        </td>
         <td class="whitespace-nowrap">{topic.partition_count} partitions</td>
         <td class="whitespace-nowrap">RF {topic.replication_factor}</td>
         <td class="whitespace-nowrap">{topic.message_count} messages</td>
