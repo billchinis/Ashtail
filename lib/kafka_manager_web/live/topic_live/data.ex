@@ -1,17 +1,22 @@
 defmodule KafkaManagerWeb.TopicLive.Data do
   @moduledoc """
-  AC-18: the Data sub-menu, the topic's landing view at `/topics/:topic`.
-  Merges every partition's messages into one newest-first, paged list via
+  The Data sub-menu, the topic's landing view at `/topics/:topic`. Merges
+  every partition's messages into one newest-first, paged list via
   `Kafka.read_topic/2` (docs/PLAN.md 2.4, 4.9), reusing R2's message row
-  components. Filtering (AC-19, AC-20) and tailing (AC-21) are not wired
-  yet; this run only builds page mode, paging and value expansion (P4), so
-  those slot in later without redesigning this module.
+  components.
+
+  AC-18 built page mode, paging and value expansion (P4). AC-19 adds the
+  key/value/header/partition filter, which reads through the same function
+  in scan mode: any active filter runs `Kafka.read_topic/2` in a
+  `start_async` task instead of synchronously, so an uncapped scan never
+  blocks the page (docs/PLAN.md 4.9, P8). Tailing (AC-21) and the time range
+  (AC-20) are not wired yet.
   """
 
   use KafkaManagerWeb, :live_view
 
   alias KafkaManager.Kafka
-  alias KafkaManager.Kafka.BrokerError
+  alias KafkaManager.Kafka.{BrokerError, Filter}
   alias KafkaManagerWeb.TopicLive.DataParams
 
   @default_page_size 50
@@ -26,8 +31,15 @@ defmodule KafkaManagerWeb.TopicLive.Data do
         topic: nil,
         page_size: @default_page_size,
         cursor: nil,
+        filter: Filter.none(),
+        filter_form: to_form(%{}, as: :filter),
+        filter_errors: %{},
+        filter_params: %{},
         older: nil,
         newer: nil,
+        page_high: nil,
+        scan_id: nil,
+        scan_state: :complete,
         scanned: 0,
         message_index: %{}
       )
@@ -41,13 +53,24 @@ defmodule KafkaManagerWeb.TopicLive.Data do
 
   @impl true
   def handle_params(%{"topic" => topic} = params, _uri, socket) do
-    %{page_size: page_size, cursor: cursor} = DataParams.parse(params)
+    %{page_size: page_size, cursor: cursor, filter_params: filter_params} =
+      DataParams.parse(params)
+
+    scan_id = make_ref()
 
     socket =
       socket
-      |> assign(topic_name: topic, page_size: page_size, cursor: cursor)
+      |> maybe_cancel_scan()
+      |> assign(
+        topic_name: topic,
+        page_size: page_size,
+        cursor: cursor,
+        filter_params: filter_params,
+        filter_form: to_form(filter_params, as: :filter),
+        scan_id: scan_id
+      )
       |> fetch_topic(topic)
-      |> fetch_page(topic, page_size, cursor)
+      |> load(topic, page_size, cursor, filter_params, scan_id)
 
     {:noreply, socket}
   end
@@ -58,7 +81,27 @@ defmodule KafkaManagerWeb.TopicLive.Data do
 
     {:noreply,
      push_patch(socket,
-       to: DataParams.path(socket.assigns.topic_name, page_size, socket.assigns.cursor)
+       to:
+         DataParams.path(
+           socket.assigns.topic_name,
+           socket.assigns.filter_params,
+           page_size,
+           socket.assigns.cursor
+         )
+     )}
+  end
+
+  def handle_event("apply", %{"filter" => filter_params}, socket) do
+    {:noreply,
+     push_patch(socket,
+       to: DataParams.path(socket.assigns.topic_name, filter_params, socket.assigns.page_size)
+     )}
+  end
+
+  def handle_event("clear", _params, socket) do
+    {:noreply,
+     push_patch(socket,
+       to: DataParams.path(socket.assigns.topic_name, %{}, socket.assigns.page_size)
      )}
   end
 
@@ -70,6 +113,65 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     {:noreply, toggle_expanded(socket, partition, offset, false)}
   end
 
+  @impl true
+  def handle_info(
+        {:scan_progress, scan_id, %{scanned: scanned, messages: rows}},
+        %{assigns: %{scan_id: scan_id}} = socket
+      ) do
+    additions = Map.new(rows, &{{&1.partition, &1.offset}, &1})
+
+    socket =
+      socket
+      |> assign(
+        scanned: scanned,
+        message_index: Map.merge(socket.assigns.message_index, additions)
+      )
+      |> insert_rows(rows)
+
+    {:noreply, socket}
+  end
+
+  # Progress from a superseded scan (a new search already minted a fresh
+  # `scan_id`, or the scan was cancelled): drop it (docs/PLAN.md 4.9).
+  def handle_info({:scan_progress, _stale_id, _progress}, socket), do: {:noreply, socket}
+
+  @impl true
+  def handle_async(
+        {:scan, scan_id},
+        {:ok, result},
+        %{assigns: %{scan_id: scan_id}} = socket
+      ) do
+    socket =
+      case result do
+        {:ok, page} ->
+          apply_page(socket, page)
+
+        {:error, %BrokerError{} = error} ->
+          socket
+          |> assign(broker_error: first_error(socket.assigns.broker_error, error))
+          |> assign(scan_state: :complete)
+      end
+
+    {:noreply, socket}
+  end
+
+  def handle_async({:scan, scan_id}, {:exit, reason}, %{assigns: %{scan_id: scan_id}}) do
+    # A crash inside the read engine, not a broker failure: surfacing it as
+    # a %BrokerError{} would hide a real bug (docs/PLAN.md 4.9).
+    raise "Data view scan crashed: #{inspect(reason)}"
+  end
+
+  # A result for a superseded scan (cancelled by a new search): drop it,
+  # including the `{:exit, {:shutdown, :cancel}}` a cancelled scan delivers.
+  def handle_async({:scan, _stale_id}, _result, socket), do: {:noreply, socket}
+
+  defp maybe_cancel_scan(%{assigns: %{scan_state: :running, scan_id: scan_id}} = socket)
+       when not is_nil(scan_id) do
+    cancel_async(socket, {:scan, scan_id})
+  end
+
+  defp maybe_cancel_scan(socket), do: socket
+
   defp fetch_topic(socket, topic) do
     case Kafka.topic_summary(topic) do
       {:ok, summary} ->
@@ -80,27 +182,92 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     end
   end
 
+  defp load(socket, topic, page_size, cursor, filter_params, scan_id) do
+    case Kafka.parse_filter(filter_params) do
+      {:error, errors} ->
+        socket
+        |> assign(filter: Filter.none(), filter_errors: errors, scan_state: :complete, scanned: 0)
+        |> stream(:messages, [], reset: true)
+
+      {:ok, filter} ->
+        socket = assign(socket, filter: filter, filter_errors: %{})
+
+        if Filter.active?(filter) do
+          start_scan(socket, topic, filter, page_size, cursor, scan_id)
+        else
+          fetch_page(socket, topic, filter, page_size, cursor)
+        end
+    end
+  end
+
+  defp start_scan(socket, topic, filter, page_size, cursor, scan_id) do
+    live_view = self()
+
+    socket
+    |> assign(scan_state: :running, scanned: 0, message_index: %{})
+    |> stream(:messages, [], reset: true)
+    |> start_async({:scan, scan_id}, fn ->
+      Kafka.read_topic(topic,
+        page_size: page_size,
+        cursor: cursor,
+        filter: filter,
+        on_progress: fn progress -> send(live_view, {:scan_progress, scan_id, progress}) end
+      )
+    end)
+  end
+
   # P3's two-fetch rule: a successful page read must not clear an error the
   # topic summary fetch already set (broker_error keeps the first error of
   # the two).
-  defp fetch_page(socket, topic, page_size, cursor) do
-    case Kafka.read_topic(topic, page_size: page_size, cursor: cursor) do
+  defp fetch_page(socket, topic, filter, page_size, cursor) do
+    case Kafka.read_topic(topic, page_size: page_size, cursor: cursor, filter: filter) do
       {:ok, page} ->
-        index = Map.new(page.messages, &{{&1.partition, &1.offset}, &1})
-        rows = Enum.map(page.messages, &to_row(&1, false))
-
-        socket
-        |> assign(
-          older: page.older,
-          newer: page.newer,
-          scanned: page.scanned,
-          message_index: index
-        )
-        |> stream(:messages, rows, reset: true)
+        apply_page(socket, page)
 
       {:error, %BrokerError{} = error} ->
-        assign(socket, broker_error: first_error(socket.assigns.broker_error, error))
+        socket
+        |> assign(broker_error: first_error(socket.assigns.broker_error, error))
+        |> assign(scan_state: :complete, scanned: 0)
     end
+  end
+
+  defp apply_page(socket, page) do
+    index = Map.new(page.messages, &{{&1.partition, &1.offset}, &1})
+    rows = Enum.map(page.messages, &to_row(&1, false))
+
+    socket
+    |> assign(
+      older: page.older,
+      newer: page.newer,
+      scanned: page.scanned,
+      message_index: index,
+      scan_state: :complete,
+      page_high: page_high(socket, page)
+    )
+    |> assign_halted_error(page.halted)
+    |> stream(:messages, rows, reset: true)
+  end
+
+  defp page_high(%{assigns: %{cursor: nil}}, page) do
+    Map.new(page.range, fn {p, {_low, high}} -> {p, high} end)
+  end
+
+  defp page_high(%{assigns: %{page_high: page_high}}, _page), do: page_high
+
+  defp assign_halted_error(socket, nil), do: socket
+
+  defp assign_halted_error(socket, {:match_limit, field}) do
+    message =
+      "This pattern needs too much backtracking to evaluate (for example nested repeats " <>
+        "such as `(a+)+`). Simplify it."
+
+    assign(socket, filter_errors: Map.put(socket.assigns.filter_errors, field, message))
+  end
+
+  defp insert_rows(socket, rows) do
+    Enum.reduce(rows, socket, fn message, socket ->
+      stream_insert(socket, :messages, to_row(message, false), at: -1)
+    end)
   end
 
   defp first_error(nil, new_error), do: new_error
@@ -136,4 +303,13 @@ defmodule KafkaManagerWeb.TopicLive.Data do
 
   defp parse_page_size(page_size) when page_size in ["20", "50"], do: String.to_integer(page_size)
   defp parse_page_size(_page_size), do: @default_page_size
+
+  defp partition_options(nil), do: []
+  defp partition_options(%{partition_count: count}), do: 0..(count - 1)
+
+  defp applied_filter_count(filter_params) do
+    ["key", "value", "header", "partition"]
+    |> Enum.map(&Map.get(filter_params, &1))
+    |> Enum.count(&(&1 not in [nil, ""]))
+  end
 end

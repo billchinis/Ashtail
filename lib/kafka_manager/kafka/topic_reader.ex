@@ -9,16 +9,17 @@ defmodule KafkaManager.Kafka.TopicReader do
   `Messages.read_range/5` only, never `Client.fetch/5` directly, which keeps
   the fetch-loop rules of `Messages` in one place.
 
-  This build (AC-18) wires the bounds, the cursor and the merge for the
-  unfiltered case: every scoped partition is the whole topic, and every
-  message matches. The `filter`/`max_scanned`/`on_progress`/`halted` pieces
-  documented in `KafkaManager.Kafka.read_topic/2`'s final shape (2.1) arrive
-  with AC-19..AC-21.
+  AC-18 wired the bounds, the cursor and the merge for the unfiltered case.
+  AC-19 adds the filter predicate (`KafkaManager.Kafka.Filter`), progress
+  reporting (`on_progress`), the scan budget (`max_scanned`) and the
+  backtracking-limit halt (`halted`). Time-range bounds (`filter.from`,
+  `filter.to`) arrive at AC-20.
   """
 
-  alias KafkaManager.Kafka.{BrokerError, Client, Config, Messages}
+  alias KafkaManager.Kafka.{BrokerError, Client, Config, Filter, Messages}
 
   @default_page_size 50
+  @scan_chunk 500
 
   @typedoc "A per-partition offset map, the shape the URL cursor carries."
   @type offset_map :: %{non_neg_integer() => integer()}
@@ -34,11 +35,30 @@ defmodule KafkaManager.Kafka.TopicReader do
   def read(%Config{} = config, topic, opts \\ []) when is_binary(topic) do
     page_size = Keyword.get(opts, :page_size, @default_page_size)
     cursor = Keyword.get(opts, :cursor)
+    filter = Keyword.get(opts, :filter, Filter.none())
+    max_scanned = Keyword.get(opts, :max_scanned, :infinity)
+    on_progress = Keyword.get(opts, :on_progress)
 
     with {:ok, metadata} <- Client.metadata(config),
-         {:ok, partition_ids} <- topic_partition_ids(metadata, config, topic),
+         {:ok, partition_ids} <- topic_partition_ids(metadata, config, topic, filter),
          {:ok, floor, ceiling} <- bounds(config, topic, partition_ids) do
-      run(config, topic, partition_ids, floor, ceiling, cursor, page_size)
+      direction = direction(cursor)
+      # A filtered scan reads in bigger chunks than an unfiltered page, since
+      # most chunks will not fill the page (docs/PLAN.md 2.4, "Refill").
+      chunk = if Filter.active?(filter), do: @scan_chunk, else: page_size
+
+      ctx = %{
+        floor: floor,
+        ceiling: ceiling,
+        direction: direction,
+        page_size: page_size,
+        chunk: chunk,
+        filter: filter,
+        max_scanned: max_scanned,
+        on_progress: on_progress
+      }
+
+      run(config, topic, partition_ids, cursor, ctx)
     end
   end
 
@@ -53,32 +73,43 @@ defmodule KafkaManager.Kafka.TopicReader do
     end
   end
 
-  defp run(config, topic, partition_ids, floor, ceiling, cursor, page_size) do
-    direction = direction(cursor)
+  defp run(config, topic, partition_ids, cursor, ctx) do
+    %{floor: floor, ceiling: ceiling, direction: direction} = ctx
     starts = init_starts(partition_ids, floor, ceiling, cursor, direction)
     state = init_state(starts, floor, ceiling, direction)
-    ctx = %{floor: floor, ceiling: ceiling, direction: direction, page_size: page_size}
 
     case step(config, topic, ctx, state, [], 0) do
-      {:ok, final_state, messages, scanned} ->
+      {:ok, final_state, messages, scanned, halted} ->
         # `step/6` returns messages in emission order: newest first for a
         # backward read, oldest first for a forward one. The result is
         # always newest first (docs/PLAN.md 2.4), so a forward read's
         # emission order is reversed here.
         ordered = if direction == :forward, do: Enum.reverse(messages), else: messages
-        {:ok, build_result(final_state, starts, floor, ceiling, direction, ordered, scanned)}
+
+        {:ok,
+         build_result(final_state, starts, floor, ceiling, direction, ordered, scanned, halted)}
 
       {:error, _} = error ->
         error
     end
   end
 
-  defp topic_partition_ids(%{topics: topics}, config, topic) do
+  defp topic_partition_ids(%{topics: topics}, config, topic, filter) do
     case Enum.find(topics, &(&1.name == topic)) do
-      nil -> {:error, unknown_topic_error(config, topic)}
-      %{partitions: partitions} -> {:ok, Enum.map(partitions, & &1.partition_index)}
+      nil ->
+        {:error, unknown_topic_error(config, topic)}
+
+      %{partitions: partitions} ->
+        ids = Enum.map(partitions, & &1.partition_index)
+        {:ok, scope_partitions(ids, filter.partition)}
     end
   end
+
+  # Scope is every one of the topic's partitions, or, with `filter.partition`
+  # set, that one partition only (docs/PLAN.md 2.4, "Terms"). A partition not
+  # on the topic simply scopes to nothing, which reads as an empty page.
+  defp scope_partitions(ids, nil), do: ids
+  defp scope_partitions(ids, partition), do: Enum.filter(ids, &(&1 == partition))
 
   defp unknown_topic_error(config, topic) do
     %BrokerError{
@@ -143,25 +174,59 @@ defmodule KafkaManager.Kafka.TopicReader do
   # Refill/emit loop (docs/PLAN.md 2.4, "Algorithm"). Emits until
   # `ctx.page_size` messages have been collected or every scoped partition is
   # exhausted with an empty buffer. `ctx` carries the loop-invariant
-  # `floor`/`ceiling`/`direction`/`page_size`.
+  # `floor`/`ceiling`/`direction`/`page_size`/`chunk`/`filter`/`max_scanned`/
+  # `on_progress`. Stops early, with `halted` set, the moment a regular
+  # expression hits its backtracking limit (docs/PLAN.md 2.5); stops early,
+  # with `halted` `nil`, once the scan budget (`max_scanned`) is spent.
   defp step(config, topic, ctx, state, page, scanned) do
     cond do
-      length(page) >= ctx.page_size ->
-        {:ok, state, Enum.reverse(page), scanned}
-
-      all_exhausted_empty?(state) ->
-        {:ok, state, Enum.reverse(page), scanned}
-
-      ready_to_emit?(state) ->
-        {msg, state2} = pop_best(state, ctx.direction)
-        step(config, topic, ctx, state2, [msg | page], scanned)
-
-      true ->
-        case refill_all(config, topic, ctx, state) do
-          {:ok, state2, added} -> step(config, topic, ctx, state2, page, scanned + added)
-          {:error, _} = error -> error
-        end
+      length(page) >= ctx.page_size -> stopped(state, page, scanned)
+      all_exhausted_empty?(state) -> stopped(state, page, scanned)
+      ready_to_emit?(state) -> emit(config, topic, ctx, state, page, scanned)
+      budget_spent?(ctx, scanned) -> stopped(state, page, scanned)
+      true -> refill_and_continue(config, topic, ctx, state, page, scanned)
     end
+  end
+
+  defp stopped(state, page, scanned), do: {:ok, state, Enum.reverse(page), scanned, nil}
+
+  defp budget_spent?(%{max_scanned: :infinity}, _scanned), do: false
+  defp budget_spent?(%{max_scanned: max_scanned}, scanned), do: scanned >= max_scanned
+
+  defp emit(config, topic, ctx, state, page, scanned) do
+    {msg, state2} = pop_best(state, ctx.direction)
+    step(config, topic, ctx, state2, [msg | page], scanned)
+  end
+
+  defp refill_and_continue(config, topic, ctx, state, page, scanned) do
+    case refill_all(config, topic, ctx, state) do
+      {:ok, state2, added, matched, halted} ->
+        scanned2 = scanned + added
+        report_progress(ctx, scanned2, matched)
+        continue_or_halt(config, topic, ctx, state2, page, scanned2, halted)
+
+      {:error, _} = error ->
+        error
+    end
+  end
+
+  defp continue_or_halt(_config, _topic, _ctx, state, page, scanned, halted)
+       when halted != nil do
+    {:ok, state, Enum.reverse(page), scanned, halted}
+  end
+
+  defp continue_or_halt(config, topic, ctx, state, page, scanned, nil) do
+    step(config, topic, ctx, state, page, scanned)
+  end
+
+  defp report_progress(%{on_progress: nil}, _scanned, _matched), do: :ok
+
+  defp report_progress(%{on_progress: on_progress, direction: direction}, scanned, matched) do
+    # Messages are included for backward reads only: a forward read's
+    # emission order is oldest first, so its progress is reported without
+    # rows (docs/PLAN.md 2.4, "Refill" step 4).
+    messages = if direction == :backward, do: matched, else: []
+    on_progress.(%{scanned: scanned, messages: messages})
   end
 
   defp all_exhausted_empty?(state) do
@@ -192,33 +257,65 @@ defmodule KafkaManager.Kafka.TopicReader do
     {DateTime.to_unix(ts, :millisecond), p, o}
   end
 
+  # Refills every partition that needs it for one round, stopping at the
+  # first error or the first backtracking-limit halt: the merge state must
+  # not silently drop the partitions after it (docs/PLAN.md 2.5).
   defp refill_all(config, topic, ctx, state) do
     needing = for {p, %{buffer: [], exhausted?: false}} <- state, do: p
 
-    Enum.reduce_while(needing, {:ok, state, 0}, fn p, {:ok, acc_state, added} ->
+    Enum.reduce_while(needing, {:ok, state, 0, [], nil}, fn p,
+                                                            {:ok, acc_state, added, matched, nil} ->
       case refill_partition(config, topic, p, ctx, acc_state) do
-        {:ok, new_state, count} -> {:cont, {:ok, new_state, added + count}}
-        {:error, _} = error -> {:halt, error}
+        {:ok, new_state, count, new_matched, nil} ->
+          {:cont, {:ok, new_state, added + count, matched ++ new_matched, nil}}
+
+        {:ok, new_state, count, new_matched, halted} ->
+          {:halt, {:ok, new_state, added + count, matched ++ new_matched, halted}}
+
+        {:error, _} = error ->
+          {:halt, error}
       end
     end)
   end
 
   defp refill_partition(config, topic, p, ctx, state) do
     %{next: next} = Map.fetch!(state, p)
-    {lo, hi} = chunk_bounds(next, ctx.floor[p], ctx.ceiling[p], ctx.direction, ctx.page_size)
+    {lo, hi} = chunk_bounds(next, ctx.floor[p], ctx.ceiling[p], ctx.direction, ctx.chunk)
 
     case Messages.read_range(config, topic, p, lo, hi) do
       {:ok, messages} ->
-        {new_next, buffer} = refilled(ctx.direction, lo, hi, messages)
+        {matched, scanned, halted} = filter_chunk(messages, ctx.filter)
+        new_next = far_edge(ctx.direction, lo, hi)
         new_exhausted? = exhausted?(ctx.direction, new_next, ctx.floor[p], ctx.ceiling[p])
+        buffer = order_buffer(ctx.direction, matched)
 
         new_state =
           put_in(state[p], %{next: new_next, buffer: buffer, exhausted?: new_exhausted?})
 
-        {:ok, new_state, length(messages)}
+        {:ok, new_state, scanned, matched, halted}
 
       {:error, _} = error ->
         error
+    end
+  end
+
+  # Every message read counts toward `scanned`, whether or not it passes the
+  # filter (docs/PLAN.md 2.4, "Refill" step 1). Stops at the first
+  # backtracking-limit hit, discarding the rest of the chunk: a halted scan
+  # ends the whole read (docs/PLAN.md 2.5).
+  defp filter_chunk(messages, filter) do
+    result =
+      Enum.reduce_while(messages, {[], 0}, fn message, {acc, scanned} ->
+        case Filter.match(filter, message) do
+          :match -> {:cont, {[message | acc], scanned + 1}}
+          :nomatch -> {:cont, {acc, scanned + 1}}
+          {:match_limit, field} -> {:halt, {:halted, Enum.reverse(acc), scanned + 1, field}}
+        end
+      end)
+
+    case result do
+      {:halted, matched, scanned, field} -> {matched, scanned, {:match_limit, field}}
+      {acc, scanned} -> {Enum.reverse(acc), scanned, nil}
     end
   end
 
@@ -227,13 +324,16 @@ defmodule KafkaManager.Kafka.TopicReader do
   defp chunk_bounds(next, _floor, ceiling, :forward, chunk),
     do: {next, min(ceiling, next + chunk)}
 
-  defp refilled(:backward, lo, _hi, messages), do: {lo, Enum.reverse(messages)}
-  defp refilled(:forward, _lo, hi, messages), do: {hi, messages}
+  defp far_edge(:backward, lo, _hi), do: lo
+  defp far_edge(:forward, _lo, hi), do: hi
+
+  defp order_buffer(:backward, matched), do: Enum.reverse(matched)
+  defp order_buffer(:forward, matched), do: matched
 
   defp exhausted?(:backward, next, floor, _ceiling), do: next <= floor
   defp exhausted?(:forward, next, _floor, ceiling), do: next >= ceiling
 
-  defp build_result(state, starts, floor, ceiling, direction, messages, scanned) do
+  defp build_result(state, starts, floor, ceiling, direction, messages, scanned, halted) do
     {low, high} = ranges(state, starts, direction)
 
     range =
@@ -247,7 +347,7 @@ defmodule KafkaManager.Kafka.TopicReader do
       older: older(low, floor),
       newer: newer(high, ceiling),
       scanned: scanned,
-      halted: nil
+      halted: halted
     }
   end
 

@@ -6,7 +6,7 @@ defmodule KafkaManager.Kafka do
   something new, add a function here rather than reaching past it.
   """
 
-  alias KafkaManager.Kafka.{Groups, Messages, Topics, TopicReader}
+  alias KafkaManager.Kafka.{Filter, Groups, Messages, Topics, TopicReader}
 
   @doc """
   The cluster connection settings resolved at boot by
@@ -107,4 +107,11 @@ defmodule KafkaManager.Kafka do
   @spec read_topic(String.t(), keyword()) ::
           {:ok, map()} | {:error, KafkaManager.Kafka.BrokerError.t()}
   def read_topic(name, opts \\ []), do: TopicReader.read(config(), name, opts)
+
+  @doc """
+  Parses the Data sub-menu's filter query params into a `%Filter{}`. Pure,
+  no broker access. See `KafkaManager.Kafka.Filter.parse/1`.
+  """
+  @spec parse_filter(map()) :: {:ok, Filter.t()} | {:error, %{String.t() => String.t()}}
+  def parse_filter(params), do: Filter.parse(params)
 end

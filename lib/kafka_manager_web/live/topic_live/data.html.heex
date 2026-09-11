@@ -7,10 +7,210 @@
   />
 
   <div class="mt-6 space-y-4">
+    <div class="card bg-base-100 shadow-sm">
+      <form
+        id="filter-form"
+        phx-submit="apply"
+        class={[
+          "collapse sm:collapse-open",
+          @filter_errors != %{} && "collapse-open"
+        ]}
+      >
+        <input type="checkbox" class="peer" />
+        <div class="collapse-title sm:hidden min-h-12 flex items-center gap-2 px-5">
+          <span>Filters</span>
+          <span
+            :if={applied_filter_count(@filter_params) > 0}
+            class="badge badge-sm badge-primary"
+          >{applied_filter_count(@filter_params)}</span>
+          <.icon name="hero-chevron-down" class="size-4 ml-auto" />
+        </div>
+        <div class="collapse-content">
+          <div class="card-body p-5 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <fieldset class="fieldset">
+                <div class="flex justify-between">
+                  <legend class="text-xs font-medium">Key</legend>
+                  <div class="join">
+                    <input
+                      type="radio"
+                      name="filter[key_mode]"
+                      value="text"
+                      aria-label="Text"
+                      class="join-item btn btn-xs"
+                      checked={@filter_form[:key_mode].value in [nil, "", "text"]}
+                    />
+                    <input
+                      type="radio"
+                      name="filter[key_mode]"
+                      value="regex"
+                      aria-label="Regex"
+                      class="join-item btn btn-xs"
+                      checked={@filter_form[:key_mode].value == "regex"}
+                    />
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  name="filter[key]"
+                  value={@filter_form[:key].value}
+                  class={[
+                    "input input-sm w-full font-mono",
+                    @filter_errors["key"] && "input-error"
+                  ]}
+                />
+                <p
+                  :if={@filter_errors["key"]}
+                  data-filter-error="key"
+                  class="text-xs text-error flex items-center gap-1"
+                >
+                  <.icon name="hero-exclamation-circle" class="size-3" />{@filter_errors["key"]}
+                </p>
+              </fieldset>
+
+              <fieldset class="fieldset">
+                <div class="flex justify-between">
+                  <legend class="text-xs font-medium">Value</legend>
+                  <div class="join">
+                    <input
+                      type="radio"
+                      name="filter[value_mode]"
+                      value="text"
+                      aria-label="Text"
+                      class="join-item btn btn-xs"
+                      checked={@filter_form[:value_mode].value in [nil, "", "text"]}
+                    />
+                    <input
+                      type="radio"
+                      name="filter[value_mode]"
+                      value="regex"
+                      aria-label="Regex"
+                      class="join-item btn btn-xs"
+                      checked={@filter_form[:value_mode].value == "regex"}
+                    />
+                  </div>
+                </div>
+                <input
+                  type="text"
+                  name="filter[value]"
+                  value={@filter_form[:value].value}
+                  class={[
+                    "input input-sm w-full font-mono",
+                    @filter_errors["value"] && "input-error"
+                  ]}
+                />
+                <p
+                  :if={@filter_errors["value"]}
+                  data-filter-error="value"
+                  class="text-xs text-error flex items-center gap-1"
+                >
+                  <.icon name="hero-exclamation-circle" class="size-3" />{@filter_errors["value"]}
+                </p>
+              </fieldset>
+
+              <fieldset class="fieldset">
+                <div class="flex justify-between">
+                  <legend class="text-xs font-medium">Header</legend>
+                  <div class="join">
+                    <input
+                      type="radio"
+                      name="filter[header_mode]"
+                      value="text"
+                      aria-label="Text"
+                      class="join-item btn btn-xs"
+                      checked={@filter_form[:header_mode].value in [nil, "", "text"]}
+                    />
+                    <input
+                      type="radio"
+                      name="filter[header_mode]"
+                      value="regex"
+                      aria-label="Regex"
+                      class="join-item btn btn-xs"
+                      checked={@filter_form[:header_mode].value == "regex"}
+                    />
+                  </div>
+                </div>
+                <div class="join w-full">
+                  <input
+                    type="text"
+                    name="filter[header]"
+                    value={@filter_form[:header].value}
+                    placeholder="name"
+                    class={[
+                      "input input-sm join-item font-mono w-2/5",
+                      @filter_errors["header"] && "input-error"
+                    ]}
+                  />
+                  <input
+                    type="text"
+                    name="filter[header_value]"
+                    value={@filter_form[:header_value].value}
+                    placeholder="value"
+                    class={[
+                      "input input-sm join-item font-mono w-3/5",
+                      @filter_errors["header"] && "input-error"
+                    ]}
+                  />
+                </div>
+                <p
+                  :if={@filter_errors["header"]}
+                  data-filter-error="header"
+                  class="text-xs text-error flex items-center gap-1"
+                >
+                  <.icon name="hero-exclamation-circle" class="size-3" />{@filter_errors["header"]}
+                </p>
+              </fieldset>
+            </div>
+
+            <div class="flex flex-col sm:flex-row sm:items-end gap-4">
+              <fieldset class="fieldset">
+                <legend class="text-xs font-medium">Partition</legend>
+                <select name="filter[partition]" class="select select-sm w-36">
+                  <option value="" selected={@filter_form[:partition].value in [nil, ""]}>
+                    All partitions
+                  </option>
+                  <option
+                    :for={p <- partition_options(@topic)}
+                    value={p}
+                    selected={to_string(p) == @filter_form[:partition].value}
+                  >
+                    Partition {p}
+                  </option>
+                </select>
+              </fieldset>
+
+              <div class="flex gap-2 sm:ml-auto max-sm:flex-col">
+                <button
+                  type="button"
+                  phx-click="clear"
+                  class="btn btn-sm btn-ghost max-sm:btn-block"
+                >
+                  Clear
+                </button>
+                <button type="submit" class="btn btn-sm btn-neutral max-sm:btn-block">
+                  <span class="phx-submit-loading:hidden">Apply</span>
+                  <span class="hidden phx-submit-loading:inline-flex loading loading-spinner loading-xs" />
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
     <div class="flex flex-wrap items-center gap-3 text-sm">
-      <div data-scan-state="complete" data-scanned={@scanned} class="flex items-center gap-2">
-        <.icon name="hero-check-circle" class="size-4 text-success" />
-        <span class="text-base-content/60">{@scanned} messages checked</span>
+      <div
+        data-scan-state={to_string(@scan_state)}
+        data-scanned={@scanned}
+        class="flex items-center gap-2"
+      >
+        <%= if @scan_state == :complete do %>
+          <.icon name="hero-check-circle" class="size-4 text-success" />
+          <span class="text-base-content/60">{@scanned} messages checked</span>
+        <% else %>
+          <span class="loading loading-dots loading-sm text-primary" />
+          <span class="font-medium">Searching… {@scanned} messages checked</span>
+        <% end %>
       </div>
 
       <div class="ml-auto flex items-center gap-3">
@@ -22,6 +222,7 @@
       :let={message}
       id="messages"
       rows={@streams.messages}
+      running={@scan_state == :running}
       row_attrs={
         fn message ->
           %{
@@ -32,12 +233,28 @@
         end
       }
     >
-      <:empty>This topic has no messages yet.</:empty>
+      <:empty>
+        <%= cond do %>
+          <% @scan_state == :running -> %>
+            <span class="loading loading-dots loading-sm text-primary" />
+            Searching… no matches yet
+          <% Filter.active?(@filter) -> %>
+            <div class="space-y-2">
+              <p>No messages match these filters.</p>
+              <p class="text-xs">Checked {@scanned} messages.</p>
+              <button type="button" phx-click="clear" class="btn btn-sm btn-ghost">
+                Clear filters
+              </button>
+            </div>
+          <% true -> %>
+            This topic has no messages yet.
+        <% end %>
+      </:empty>
       <.message_row message={message} show_partition={true} />
       <:footer>
         <.pager
-          prev_patch={@newer && DataParams.path(@topic_name, @page_size, @newer)}
-          next_patch={@older && DataParams.path(@topic_name, @page_size, @older)}
+          prev_patch={@newer && DataParams.path(@topic_name, @filter_params, @page_size, @newer)}
+          next_patch={@older && DataParams.path(@topic_name, @filter_params, @page_size, @older)}
           prev_label="Newer"
           next_label="Older"
         />

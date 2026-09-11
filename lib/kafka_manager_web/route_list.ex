@@ -26,9 +26,10 @@ defmodule KafkaManagerWeb.RouteList do
   # partition 0 and group `orders-service`): the audit topic's long keys and
   # 2 KB values, `notifications`' null keys and interleaved merged Data view,
   # the empty Data state, a group with real lag, a `Stable` group on the
-  # Consumer Groups sub-menu, and `payments`' non-default `retention.ms`
-  # config override. Kept here, alongside `@params`, so `mix screenshots`
-  # and the smoke test never have to invent their own extra paths.
+  # Consumer Groups sub-menu, `payments`' non-default `retention.ms` config
+  # override, and a filtered Data view (a whole-topic scan, AC-19). Kept
+  # here, alongside `@params`, so `mix screenshots` and the smoke test never
+  # have to invent their own extra paths.
   @extra_routes [
     %{path: "/topics/#{URI.encode(@audit_topic)}", live?: true},
     %{path: "/topics/#{URI.encode(@audit_topic)}/partitions/0", live?: true},
@@ -37,7 +38,8 @@ defmodule KafkaManagerWeb.RouteList do
     %{path: "/topics/notifications/groups", live?: true},
     %{path: "/topics/empty-topic", live?: true},
     %{path: "/groups/lagging-analytics", live?: true},
-    %{path: "/topics/payments/configs", live?: true}
+    %{path: "/topics/payments/configs", live?: true},
+    %{path: "/topics/orders?key=%5Eorder-0001%24&key_mode=regex", live?: true}
   ]
 
   @skip_prefixes ["/dev"]
