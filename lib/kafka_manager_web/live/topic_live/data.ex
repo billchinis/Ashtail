@@ -112,9 +112,14 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     {:noreply, assign(socket, json_rows: socket.assigns.json_rows ++ [row], next_json_id: id + 1)}
   end
 
-  def handle_event("remove_json_condition", %{"row" => row}, socket) do
+  def handle_event("remove_json_condition", %{"row" => row}, socket) when is_binary(row) do
     {:noreply, remove_json_row(socket, row)}
   end
+
+  # A non-binary `row` (a crafted payload) must not crash `Integer.parse/1`
+  # in `remove_json_row/2`, the same as the offset handlers above (fix run
+  # item 7): it simply cannot match any row, so it is a no-op.
+  def handle_event("remove_json_condition", _params, socket), do: {:noreply, socket}
 
   def handle_event("page_size", %{"page_size" => page_size}, socket) do
     page_size = parse_page_size(page_size)

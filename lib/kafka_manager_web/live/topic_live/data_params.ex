@@ -56,16 +56,14 @@ defmodule KafkaManagerWeb.TopicLive.DataParams do
   defp blank_to_string(value) when is_binary(value), do: value
   defp blank_to_string(_value), do: ""
 
-  @doc """
-  The JSON condition rows normaliser (docs/PLAN.md 4.11), exposed for
-  `path/4` and `parse/1` to share. Accepts the index map the URL and the
-  form both produce, or the list `parse/1` returns; anything else reads as
-  no rows. Returns an ordered list of `%{"path" => .., "op" => .., "value"
-  => ..}` string maps, blank-path rows dropped and the rest renumbered by
-  their position in the result.
-  """
+  # The JSON condition rows normaliser (docs/PLAN.md 4.11), private and
+  # shared by `path/4` and `parse/1` within this module. Accepts the index
+  # map the URL and the form both produce, or the list `parse/1` returns;
+  # anything else reads as no rows. Returns an ordered list of `%{"path" =>
+  # .., "op" => .., "value" => ..}` string maps, blank-path rows dropped and
+  # the rest renumbered by their position in the result.
   @spec normalize_json(term()) :: [%{String.t() => String.t()}]
-  def normalize_json(rows) when is_map(rows) do
+  defp normalize_json(rows) when is_map(rows) do
     rows
     |> Enum.filter(fn {key, value} -> canonical_index?(key) and is_map(value) end)
     |> Enum.sort_by(fn {key, _value} -> String.to_integer(key) end)
@@ -73,14 +71,14 @@ defmodule KafkaManagerWeb.TopicLive.DataParams do
     |> drop_blank_paths()
   end
 
-  def normalize_json(rows) when is_list(rows) do
+  defp normalize_json(rows) when is_list(rows) do
     rows
     |> Enum.filter(&is_map/1)
     |> Enum.map(&normalize_json_row/1)
     |> drop_blank_paths()
   end
 
-  def normalize_json(_other), do: []
+  defp normalize_json(_other), do: []
 
   defp canonical_index?(key) when is_binary(key) do
     case Integer.parse(key) do

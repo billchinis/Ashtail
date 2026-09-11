@@ -28,7 +28,7 @@
         </div>
         <div class="collapse-content p-0!">
           <div class="card-body p-5 gap-4">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-[minmax(0,3fr)_minmax(0,4fr)_minmax(0,3fr)] gap-4 sm:items-start">
               <fieldset class="fieldset">
                 <div class="flex justify-between">
                   <legend class="text-xs font-medium">Key</legend>
@@ -124,14 +124,14 @@
                       placeholder="e.g. items[0].sku"
                       aria-label={"JSON path #{position + 1}"}
                       class={[
-                        "input input-sm sm:input-xs w-full font-mono col-span-2 sm:col-span-1",
-                        @filter_errors["json-#{position}"] && "input-error"
+                        "input input-sm sm:input-xs w-full font-mono col-span-2 sm:col-span-1 order-1 sm:order-none",
+                        @filter_errors["json-#{row.id}"] && "input-error"
                       ]}
                     />
                     <select
                       name={"filter[json][#{row.id}][op]"}
                       aria-label={"Operator #{position + 1}"}
-                      class="select select-sm sm:select-xs w-24"
+                      class="select select-sm sm:select-xs w-24 order-3 sm:order-none"
                     >
                       <option value="equals" selected={row.op == "equals"}>equals</option>
                       <option value="contains" selected={row.op == "contains"}>contains</option>
@@ -148,8 +148,8 @@
                       tabindex={row.op == "exists" && "-1"}
                       aria-label={"JSON value #{position + 1}"}
                       class={[
-                        "input input-sm sm:input-xs w-full font-mono",
-                        @filter_errors["json-#{position}"] && "input-error",
+                        "input input-sm sm:input-xs w-full font-mono col-span-2 sm:col-span-1 order-4 sm:order-none",
+                        @filter_errors["json-#{row.id}"] && "input-error",
                         row.op == "exists" &&
                           "bg-base-200 text-base-content/40 cursor-not-allowed"
                       ]}
@@ -161,17 +161,17 @@
                       data-remove-json-condition
                       aria-label={"Remove JSON field #{position + 1}"}
                       title={"Remove JSON field #{position + 1}"}
-                      class="btn btn-sm sm:btn-xs btn-ghost btn-square text-base-content/50"
+                      class="btn btn-sm sm:btn-xs btn-ghost btn-square text-base-content/50 order-2 sm:order-none"
                     >
                       <.icon name="hero-x-mark" class="size-3.5" />
                     </button>
                     <p
-                      :if={@filter_errors["json-#{position}"]}
+                      :if={@filter_errors["json-#{row.id}"]}
                       data-filter-error={"json-#{position}"}
-                      class="col-span-full text-xs text-error flex items-start gap-1 break-words"
+                      class="col-span-full order-5 sm:order-none text-xs text-error flex items-start gap-1 break-words"
                     >
                       <.icon name="hero-exclamation-circle" class="size-3 mt-0.5 shrink-0" />
-                      {@filter_errors["json-#{position}"]}
+                      {@filter_errors["json-#{row.id}"]}
                     </p>
                   </div>
                 </div>
@@ -180,7 +180,7 @@
                   type="button"
                   phx-click="add_json_condition"
                   data-add-json-condition
-                  class="btn btn-xs sm:btn-sm btn-ghost text-base-content/70 self-start"
+                  class="btn btn-xs sm:btn-sm btn-ghost text-base-content/70 justify-self-start"
                 >
                   <.icon name="hero-plus" class="size-3" /> Add JSON field
                 </button>

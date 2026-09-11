@@ -47,7 +47,11 @@ defmodule KafkaManagerWeb.MessageComponents do
   Renders a message's value. Values longer than the truncation length
   (AC-8) render behind a server-side expander (docs/PLAN.md 4.1, P4)
   instead of in full. `partition` is set only where the caller's expand
-  and collapse events are keyed by `{partition, offset}` (the Data view).
+  and collapse events are keyed by `{partition, offset}` (the Data view). An
+  empty string (fix run item 6) renders a muted `(empty)` marker instead of
+  a blank block, in the same spirit as `message_key/1`'s `<null>` marker but
+  without claiming the value was null: the broker gives no way to tell a
+  Kafka null value apart from an empty string (docs/DECISIONS.md).
   """
   attr :value, :string, required: true
   attr :expanded?, :boolean, default: false
@@ -60,7 +64,11 @@ defmodule KafkaManagerWeb.MessageComponents do
     ~H"""
     <div>
       <span
-        :if={not @long?}
+        :if={not @long? and @value == ""}
+        class="block bg-base-200 rounded-lg px-3 py-1 font-mono text-sm leading-5 italic text-base-content/40"
+      >(empty)</span>
+      <span
+        :if={not @long? and @value != ""}
         class="block bg-base-200 rounded-lg px-3 py-1 font-mono text-sm leading-5 whitespace-pre-wrap break-all"
       >{@value}</span>
       <span
