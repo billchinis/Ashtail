@@ -35,6 +35,8 @@ defmodule KafkaManagerWeb.TopicDataTimeFilterTest do
     from = timestamp_of(html, 20)
     to = timestamp_of(html, 30)
     assert from != nil and to != nil
+    assert String.ends_with?(from, "Z")
+    assert String.ends_with?(to, "Z")
 
     {html, _path} = apply_filter(view, %{"from" => from, "to" => to})
     assert notifications(html) == Enum.to_list(30..20//-1)
@@ -55,6 +57,8 @@ defmodule KafkaManagerWeb.TopicDataTimeFilterTest do
     assert notifications(html2) == [30, 25, 20]
     assert filter_field(html2, "from") == from
     assert filter_field(html2, "to") == to
+    assert String.ends_with?(filter_field(html2, "from"), "Z")
+    assert String.ends_with?(filter_field(html2, "to"), "Z")
     assert filter_field(html2, "header") == "channel"
     assert filter_field(html2, "header_value") == "sms"
 
@@ -67,11 +71,20 @@ defmodule KafkaManagerWeb.TopicDataTimeFilterTest do
       preset_from = filter_field(changed, "from")
       preset_to = filter_field(changed, "to")
 
-      {:ok, from_dt, _offset} = DateTime.from_iso8601(preset_from)
-      {:ok, to_dt, _offset} = DateTime.from_iso8601(preset_to)
+      assert String.ends_with?(preset_from, "Z")
+      assert String.ends_with?(preset_to, "Z")
 
-      assert_in_delta DateTime.diff(DateTime.utc_now(), to_dt, :second), 0, 10
-      assert DateTime.diff(to_dt, from_dt, :second) == seconds
+      {:ok, from_dt, from_offset} = DateTime.from_iso8601(preset_from)
+      {:ok, to_dt, to_offset} = DateTime.from_iso8601(preset_to)
+      assert from_offset == 0
+      assert to_offset == 0
+
+      now_ms = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
+      to_ms = DateTime.to_unix(to_dt, :millisecond)
+      from_ms = DateTime.to_unix(from_dt, :millisecond)
+
+      assert_in_delta now_ms, to_ms, 10_000
+      assert to_ms - from_ms == seconds * 1000
     end
 
     html = view2 |> element("#filter-form button[phx-click='clear']") |> render_click()

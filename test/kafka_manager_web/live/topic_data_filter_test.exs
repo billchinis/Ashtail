@@ -34,6 +34,9 @@ defmodule KafkaManagerWeb.TopicDataFilterTest do
     assert Enum.map(rows(html), & &1.offset) == Enum.to_list(58..49//-1)
 
     html = apply_filter(view, %{"key" => "^order-0001$"})
+    assert scan_state(html) == "complete"
+    refute html =~ "data-broker-error"
+    refute html =~ "data-filter-error"
     assert rows(html) == []
 
     html = apply_filter(view, %{"key" => "order-(", "key_mode" => "regex"})
@@ -47,6 +50,7 @@ defmodule KafkaManagerWeb.TopicDataFilterTest do
     assert scanned(html) == 600
 
     html = apply_filter(view, %{"value" => ~s("status":"cancelled"), "partition" => "2"})
+    assert scan_state(html) == "complete"
     assert Enum.all?(rows(html), &(&1.partition == 2))
     assert keys(html) == Enum.map(299..203//-4, &order_key/1)
     assert Enum.map(rows(html), & &1.offset) == Enum.to_list(98..2//-4)
@@ -54,6 +58,7 @@ defmodule KafkaManagerWeb.TopicDataFilterTest do
     {:ok, view2, _html} = live(conn, ~p"/topics/notifications")
 
     html = apply_filter(view2, %{"header" => "channel", "header_value" => "SMS"})
+    assert scan_state(html) == "complete"
     assert notifications(html) == Enum.to_list(45..5//-5)
 
     html =
@@ -65,13 +70,16 @@ defmodule KafkaManagerWeb.TopicDataFilterTest do
         "value_mode" => "regex"
       })
 
+    assert scan_state(html) == "complete"
     assert notifications(html) == [25, 20, 15, 10]
 
     html = apply_filter(view2, %{"value" => "no-such-text"})
+    assert scan_state(html) == "complete"
     assert rows(html) == []
     assert scanned(html) == 48
 
     html = apply_filter(view2, %{})
+    assert scan_state(html) == "complete"
     assert notifications(html) == Enum.to_list(48..1//-1)
   end
 

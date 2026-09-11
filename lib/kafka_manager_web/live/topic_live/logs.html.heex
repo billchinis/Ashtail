@@ -31,7 +31,7 @@
         label="Log directory"
         class="font-mono text-sm break-all max-sm:w-full"
       >
-        {row.log_dir}
+        <span data-log-dir={row.log_dir}>{row.log_dir}</span>
       </:col>
       <:col :let={row} label="Size" numeric>
         <div data-size-bytes={row.size_bytes}>

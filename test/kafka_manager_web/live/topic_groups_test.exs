@@ -24,6 +24,7 @@ defmodule KafkaManagerWeb.TopicGroupsTest do
 
     refute has_element?(orders_view, "[data-group='payments-worker']")
     refute has_element?(orders_view, "[data-group='live-tailer']")
+    refute has_element?(orders_view, "[data-broker-error]")
 
     {:ok, notifications_view, notifications_html} = live(conn, ~p"/topics/notifications/groups")
 
@@ -33,9 +34,10 @@ defmodule KafkaManagerWeb.TopicGroupsTest do
     assert live_tailer =~ ~r/data-group-state="Stable"/
     assert live_tailer =~ ~s(href="/groups/live-tailer")
 
-    {:ok, _empty_view, empty_html} = live(conn, ~p"/topics/empty-topic/groups")
+    {:ok, empty_view, empty_html} = live(conn, ~p"/topics/empty-topic/groups")
 
     assert count_group_rows(empty_html) == 0
+    refute has_element?(empty_view, "[data-broker-error]")
   end
 
   defp count_group_rows(html), do: ~r/data-group="/ |> Regex.scan(html) |> length()
