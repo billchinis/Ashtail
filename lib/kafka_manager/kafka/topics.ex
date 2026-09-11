@@ -66,6 +66,20 @@ defmodule KafkaManager.Kafka.Topics do
     end
   end
 
+  @doc """
+  A single topic's per-partition offsets only, with no broker configuration
+  fetched. This is `get_topic/2` minus `DescribeConfigs`: the summary every
+  topic sub-menu header renders (docs/PLAN.md P6).
+  """
+  @spec topic_summary(Config.t(), String.t()) :: {:ok, Topic.t()} | {:error, BrokerError.t()}
+  def topic_summary(%Config{} = config, name) when is_binary(name) do
+    with {:ok, metadata} <- Client.metadata(config),
+         {:ok, topic} <- find_topic(metadata, config, name),
+         {:ok, [topic]} <- attach_offsets(config, [topic]) do
+      {:ok, topic}
+    end
+  end
+
   defp find_topic(metadata, config, name) do
     case metadata |> topics_from_metadata() |> Enum.find(&(&1.name == name)) do
       nil -> {:error, unknown_topic_error(config, name)}

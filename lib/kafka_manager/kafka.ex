@@ -31,6 +31,16 @@ defmodule KafkaManager.Kafka do
   def get_topic(name), do: Topics.get_topic(config(), name)
 
   @doc """
+  A topic's header summary: per-partition offsets, with no broker
+  configuration fetched. Used by every topic sub-menu page (except Configs,
+  which needs `get_topic/1`'s superset). See
+  `KafkaManager.Kafka.Topics.topic_summary/2`.
+  """
+  @spec topic_summary(String.t()) ::
+          {:ok, KafkaManager.Kafka.Topic.t()} | {:error, KafkaManager.Kafka.BrokerError.t()}
+  def topic_summary(name), do: Topics.topic_summary(config(), name)
+
+  @doc """
   A page of messages from a chosen partition starting at a chosen offset.
   See `KafkaManager.Kafka.Messages.fetch_messages/5`.
   """

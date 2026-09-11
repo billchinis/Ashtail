@@ -1,0 +1,24 @@
+<Layouts.app flash={@flash} section={:topics}>
+  <.topic_header
+    topic_name={@topic_name}
+    topic={@topic}
+    active={:configs}
+    broker_error={@broker_error}
+  />
+
+  <div class="mt-6">
+    <.table
+      id="topic_configs"
+      rows={@streams.topic_configs}
+      empty="No configuration returned."
+      row_attrs={fn entry -> %{"data-config-name" => entry.name} end}
+    >
+      <:col :let={entry} label="Name" class="w-1/2">
+        <span class="font-mono text-sm break-all">{entry.name}</span>
+      </:col>
+      <:col :let={entry} label="Value">
+        <span class="font-mono text-sm break-all">{entry.value}</span>
+      </:col>
+    </.table>
+  </div>
+</Layouts.app>

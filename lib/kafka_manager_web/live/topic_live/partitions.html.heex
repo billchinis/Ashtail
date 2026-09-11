@@ -1,0 +1,34 @@
+<Layouts.app flash={@flash} section={:topics}>
+  <.topic_header
+    topic_name={@topic_name}
+    topic={@topic}
+    active={:partitions}
+    broker_error={@broker_error}
+  />
+
+  <div class="mt-6">
+    <.table
+      id="partitions"
+      rows={@streams.partitions}
+      empty="No partitions returned."
+      row_attrs={
+        fn p ->
+          %{"data-partition" => p.id, "data-earliest" => p.earliest, "data-latest" => p.latest}
+        end
+      }
+    >
+      <:col :let={p} label="Partition">
+        <.link
+          navigate={~p"/topics/#{@topic_name}/partitions/#{p.id}"}
+          class="link link-hover font-mono inline-flex items-center gap-1"
+        >
+          {p.id} <.icon name="hero-chevron-right" class="size-3" />
+        </.link>
+      </:col>
+      <:col :let={p} label="Leader">{p.leader}</:col>
+      <:col :let={p} label="Replicas">{Enum.join(p.replicas, ",")}</:col>
+      <:col :let={p} label="Earliest" numeric>{p.earliest}</:col>
+      <:col :let={p} label="Latest" numeric>{p.latest}</:col>
+    </.table>
+  </div>
+</Layouts.app>
