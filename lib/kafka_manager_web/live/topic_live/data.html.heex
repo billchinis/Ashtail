@@ -1,0 +1,47 @@
+<Layouts.app flash={@flash} section={:topics}>
+  <.topic_header
+    topic_name={@topic_name}
+    topic={@topic}
+    active={:data}
+    broker_error={@broker_error}
+  />
+
+  <div class="mt-6 space-y-4">
+    <div class="flex flex-wrap items-center gap-3 text-sm">
+      <div data-scan-state="complete" data-scanned={@scanned} class="flex items-center gap-2">
+        <.icon name="hero-check-circle" class="size-4 text-success" />
+        <span class="text-base-content/60">{@scanned} messages checked</span>
+      </div>
+
+      <div class="ml-auto flex items-center gap-3">
+        <.page_size_select page_size={@page_size} />
+      </div>
+    </div>
+
+    <.message_list
+      :let={message}
+      id="messages"
+      rows={@streams.messages}
+      row_attrs={
+        fn message ->
+          %{
+            "data-partition" => message.partition,
+            "data-offset" => message.offset,
+            "data-timestamp" => iso_timestamp(message.timestamp)
+          }
+        end
+      }
+    >
+      <:empty>This topic has no messages yet.</:empty>
+      <.message_row message={message} show_partition={true} />
+      <:footer>
+        <.pager
+          prev_patch={@newer && DataParams.path(@topic_name, @page_size, @newer)}
+          next_patch={@older && DataParams.path(@topic_name, @page_size, @older)}
+          prev_label="Newer"
+          next_label="Older"
+        />
+      </:footer>
+    </.message_list>
+  </div>
+</Layouts.app>

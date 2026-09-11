@@ -101,20 +101,29 @@ defmodule KafkaManager.Kafka.Client do
 
     case :brod.fetch({endpoints(config), conn_config(config)}, topic, partition, offset, opts) do
       {:ok, {high_watermark, messages}} ->
-        {:ok, %{messages: Enum.map(messages, &to_message/1), high_watermark: high_watermark}}
+        {:ok,
+         %{
+           messages: Enum.map(messages, &to_message(&1, partition)),
+           high_watermark: high_watermark
+         }}
 
       {:error, reason} ->
         {:error, broker_error(config, reason)}
     end
   end
 
-  defp to_message(record) do
+  # `partition` (2026-09-11) is the partition this fetch asked for, not
+  # something the message record itself carries; the merged Data view needs
+  # it on every `%Message{}` for ordering, row identity and the "partition 7"
+  # label (docs/PLAN.md 1.2).
+  defp to_message(record, partition) do
     %Message{
       offset: kafka_message(record, :offset),
       key: normalize_key(kafka_message(record, :key)),
       value: kafka_message(record, :value),
       timestamp: DateTime.from_unix!(kafka_message(record, :ts), :millisecond),
-      headers: kafka_message(record, :headers)
+      headers: kafka_message(record, :headers),
+      partition: partition
     }
   end
 

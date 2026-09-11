@@ -15,7 +15,9 @@ defmodule KafkaManager.Kafka.Messages do
   @max_max_bytes 8_388_608
 
   @doc """
-  See `KafkaManager.Kafka.fetch_messages/4` for the public shape.
+  See `KafkaManager.Kafka.fetch_messages/4` for the public shape. Resolves
+  `earliest`/`latest`, clamps `from_offset` into range, then reads
+  `read_range/5` up to `min(latest, from_offset + limit)` (docs/PLAN.md 2.3).
   """
   @spec fetch_messages(Config.t(), String.t(), non_neg_integer(), integer(), pos_integer()) ::
           {:ok, %{messages: [Message.t()], earliest: integer(), latest: integer()}}
@@ -30,11 +32,34 @@ defmodule KafkaManager.Kafka.Messages do
          {:ok, {earliest, latest}} <-
            resolve_bounds(config, pair, earliest_offsets, latest_offsets) do
       start_offset = clamp(from_offset, earliest, latest)
+      to = min(latest, start_offset + limit)
 
-      case collect(config, topic, partition, start_offset, latest, limit) do
+      case read_range(config, topic, partition, start_offset, to) do
         {:ok, messages} -> {:ok, %{messages: messages, earliest: earliest, latest: latest}}
         {:error, _} = error -> error
       end
+    end
+  end
+
+  @doc """
+  Reads messages in the half-open offset range `[from, to)` for one
+  partition, in ascending offset order (docs/PLAN.md 2.3). Drops anything
+  below `from` and anything at or above `to`, because a fetch may return the
+  start or the tail of a whole batch. Doubles `max_bytes` (starting at 1 MB,
+  capped at 8 MB) and retries once whenever a fetch comes back empty short of
+  `to`; if it is still empty after the retry, the range is treated as read to
+  its end, which is correct for compaction gaps. This is the only read path
+  `KafkaManager.Kafka.TopicReader` uses (it never calls `Client.fetch/5`
+  directly).
+  """
+  @spec read_range(Config.t(), String.t(), non_neg_integer(), integer(), integer()) ::
+          {:ok, [Message.t()]} | {:error, BrokerError.t()}
+  def read_range(%Config{} = config, topic, partition, from, to)
+      when is_binary(topic) and is_integer(partition) and is_integer(from) and is_integer(to) do
+    if from >= to do
+      {:ok, []}
+    else
+      collect_range(config, topic, partition, from, to)
     end
   end
 
@@ -79,47 +104,43 @@ defmodule KafkaManager.Kafka.Messages do
     }
   end
 
-  defp collect(config, topic, partition, from_offset, latest, limit) do
-    ctx = %{
-      config: config,
-      topic: topic,
-      partition: partition,
-      from_offset: from_offset,
-      latest: latest,
-      limit: limit
-    }
-
-    do_collect(ctx, from_offset, [], @min_max_bytes, false)
+  defp collect_range(config, topic, partition, from, to) do
+    ctx = %{config: config, topic: topic, partition: partition, from: from, to: to}
+    do_collect_range(ctx, from, [], @min_max_bytes, false)
   end
 
-  defp do_collect(%{limit: limit, latest: latest}, request_offset, acc, _max_bytes, _retried?)
-       when length(acc) >= limit or request_offset >= latest do
-    {:ok, finalize(acc, limit)}
+  defp do_collect_range(%{to: to}, request_offset, acc, _max_bytes, _retried?)
+       when request_offset >= to do
+    {:ok, finalize_range(acc)}
   end
 
-  defp do_collect(ctx, request_offset, acc, max_bytes, retried?) do
-    %{config: config, topic: topic, partition: partition, from_offset: from_offset, limit: limit} =
-      ctx
+  defp do_collect_range(ctx, request_offset, acc, max_bytes, retried?) do
+    %{config: config, topic: topic, partition: partition, from: from, to: to} = ctx
 
     case Client.fetch(config, topic, partition, request_offset, max_bytes) do
       {:ok, %{messages: []}} when not retried? and max_bytes < @max_max_bytes ->
         next_max_bytes = min(max_bytes * 2, @max_max_bytes)
-        do_collect(ctx, request_offset, acc, next_max_bytes, true)
+        do_collect_range(ctx, request_offset, acc, next_max_bytes, true)
 
       {:ok, %{messages: []}} ->
-        {:ok, finalize(acc, limit)}
+        {:ok, finalize_range(acc)}
 
       {:ok, %{messages: messages}} ->
-        kept = Enum.filter(messages, &(&1.offset >= from_offset))
+        kept = Enum.filter(messages, &(&1.offset >= from and &1.offset < to))
         next_request_offset = messages |> List.last() |> Map.fetch!(:offset) |> Kernel.+(1)
-        do_collect(ctx, next_request_offset, acc ++ kept, @min_max_bytes, false)
+
+        if next_request_offset >= to do
+          {:ok, finalize_range(acc ++ kept)}
+        else
+          do_collect_range(ctx, next_request_offset, acc ++ kept, @min_max_bytes, false)
+        end
 
       {:error, _} = error ->
         error
     end
   end
 
-  defp finalize(acc, limit), do: acc |> Enum.sort_by(& &1.offset) |> Enum.take(limit)
+  defp finalize_range(acc), do: Enum.sort_by(acc, & &1.offset)
 
   defp clamp(value, min, max), do: value |> max(min) |> min(max)
 

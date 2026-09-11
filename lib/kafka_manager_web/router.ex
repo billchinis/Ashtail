@@ -18,7 +18,7 @@ defmodule KafkaManagerWeb.Router do
     pipe_through :browser
 
     live "/", TopicLive.Index, :index
-    live "/topics/:topic", TopicLive.Show, :show
+    live "/topics/:topic", TopicLive.Data, :data
     live "/topics/:topic/partitions", TopicLive.Partitions, :partitions
     live "/topics/:topic/groups", TopicLive.Groups, :groups
     live "/topics/:topic/configs", TopicLive.Configs, :configs

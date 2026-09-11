@@ -6,7 +6,7 @@ defmodule KafkaManager.Kafka do
   something new, add a function here rather than reaching past it.
   """
 
-  alias KafkaManager.Kafka.{Groups, Messages, Topics}
+  alias KafkaManager.Kafka.{Groups, Messages, Topics, TopicReader}
 
   @doc """
   The cluster connection settings resolved at boot by
@@ -98,4 +98,13 @@ defmodule KafkaManager.Kafka do
            ]}
           | {:error, KafkaManager.Kafka.BrokerError.t()}
   def topic_log_dirs(name), do: Topics.topic_log_dirs(config(), name)
+
+  @doc """
+  One page of a topic's messages, merged across every partition and sorted
+  newest first. The Data sub-menu's only read path. See
+  `KafkaManager.Kafka.TopicReader.read/3`.
+  """
+  @spec read_topic(String.t(), keyword()) ::
+          {:ok, map()} | {:error, KafkaManager.Kafka.BrokerError.t()}
+  def read_topic(name, opts \\ []), do: TopicReader.read(config(), name, opts)
 end
