@@ -25,10 +25,18 @@
           {p.id} <.icon name="hero-chevron-right" class="size-3" />
         </.link>
       </:col>
-      <:col :let={p} label="Leader">{p.leader}</:col>
-      <:col :let={p} label="Replicas">{Enum.join(p.replicas, ",")}</:col>
-      <:col :let={p} label="Earliest" numeric>{p.earliest}</:col>
-      <:col :let={p} label="Latest" numeric>{p.latest}</:col>
+      <:col :let={p} label="Leader">
+        <span class="text-base-content/60 sm:hidden">Leader </span>{p.leader}
+      </:col>
+      <:col :let={p} label="Replicas">
+        <span class="text-base-content/60 sm:hidden">Replicas </span>{Enum.join(p.replicas, ",")}
+      </:col>
+      <:col :let={p} label="Earliest" numeric>
+        <span class="text-base-content/60 sm:hidden">Earliest </span>{p.earliest}
+      </:col>
+      <:col :let={p} label="Latest" numeric>
+        <span class="text-base-content/60 sm:hidden">Latest </span>{p.latest}
+      </:col>
     </.table>
   </div>
 </Layouts.app>

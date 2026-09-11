@@ -164,7 +164,7 @@
             </div>
 
             <div class="flex flex-col sm:flex-row sm:items-end gap-4">
-              <fieldset class="fieldset">
+              <fieldset class="fieldset pb-0">
                 <legend class="text-xs font-medium">Partition</legend>
                 <select name="filter[partition]" class="select select-sm w-36">
                   <option value="" selected={@filter_form[:partition].value in [nil, ""]}>
@@ -180,7 +180,7 @@
                 </select>
               </fieldset>
 
-              <fieldset class="fieldset">
+              <fieldset class="fieldset pb-0">
                 <legend class="text-xs font-medium">Time range</legend>
                 <select name="filter[range]" class="select select-sm w-40">
                   <option value="" selected={@filter_form[:range].value in [nil, ""]}>
@@ -201,7 +201,7 @@
                 </select>
               </fieldset>
 
-              <fieldset class="fieldset">
+              <fieldset class="fieldset pb-0">
                 <legend class="text-xs font-medium">From (UTC)</legend>
                 <input
                   type="text"
@@ -222,7 +222,7 @@
                 </p>
               </fieldset>
 
-              <fieldset class="fieldset">
+              <fieldset class="fieldset pb-0">
                 <legend class="text-xs font-medium">To (UTC)</legend>
                 <input
                   type="text"

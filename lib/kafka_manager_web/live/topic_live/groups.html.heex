@@ -26,6 +26,7 @@
         <.state_pill state={g.state} />
       </:col>
       <:col :let={g} label="Lag on this topic" numeric class="sm:w-40">
+        <span class="text-base-content/60 sm:hidden">Lag </span>
         <.lag lag={g.total_lag} class="text-2xl leading-none" />
       </:col>
     </.table>

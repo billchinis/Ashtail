@@ -51,10 +51,17 @@
       <:col :let={p} label="Topic">
         <span class="font-mono break-all">{p.topic}</span>
       </:col>
-      <:col :let={p} label="Partition" numeric>{p.partition}</:col>
-      <:col :let={p} label="Committed offset" numeric>{p.committed_offset}</:col>
-      <:col :let={p} label="Latest offset" numeric>{p.latest_offset}</:col>
+      <:col :let={p} label="Partition" numeric>
+        <span class="text-base-content/60 sm:hidden">Partition </span>{p.partition}
+      </:col>
+      <:col :let={p} label="Committed offset" numeric>
+        <span class="text-base-content/60 sm:hidden">Committed </span>{p.committed_offset}
+      </:col>
+      <:col :let={p} label="Latest offset" numeric>
+        <span class="text-base-content/60 sm:hidden">Latest </span>{p.latest_offset}
+      </:col>
       <:col :let={p} label="Lag" numeric>
+        <span class="text-base-content/60 sm:hidden">Lag </span>
         <.lag lag={p.lag} class="text-xl leading-none" />
       </:col>
     </.table>

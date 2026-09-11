@@ -67,6 +67,8 @@ defmodule KafkaManagerWeb.TopicComponents do
         <nav
           aria-label="Topic sections"
           class="tabs tabs-box tabs-sm w-full overflow-x-auto flex-nowrap sm:tabs-md sm:w-fit sm:overflow-visible"
+          phx-hook=".ScrollActiveTab"
+          id={"topic-tabs-#{@topic_name}"}
         >
           <.link
             :for={tab <- tabs(@topic_name)}
@@ -77,6 +79,20 @@ defmodule KafkaManagerWeb.TopicComponents do
             {tab.label}
           </.link>
         </nav>
+        <script :type={Phoenix.LiveView.ColocatedHook} name=".ScrollActiveTab">
+          export default {
+            mounted() {
+              this.scroll()
+            },
+            updated() {
+              this.scroll()
+            },
+            scroll() {
+              const active = this.el.querySelector("[aria-current='page']")
+              if (active) active.scrollIntoView({block: "nearest", inline: "nearest"})
+            }
+          }
+        </script>
 
         <.link
           navigate={~p"/topics/#{@topic_name}/produce"}
