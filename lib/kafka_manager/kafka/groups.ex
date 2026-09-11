@@ -5,6 +5,13 @@ defmodule KafkaManager.Kafka.Groups do
   coordinator each group was found on, then fetches each group's committed
   offsets and combines them with a single batched `Client.list_offsets/3`
   call (per direction) to compute per-partition and total lag.
+
+  `list_groups/1` (AC-11) and `topic_groups/2` (AC-16) are the same private
+  pipeline (`fetch_groups/2`) with a scope argument, `:all` or
+  `{:topic, name}`, so the two cannot drift apart. In topic scope, a group
+  is kept only if it has committed an offset on that topic or has a member
+  currently assigned to it, and its `partitions`/`total_lag` are computed
+  over that topic's partitions only (docs/PLAN.md 2.6).
   """
 
   alias KafkaManager.Kafka.{BrokerError, Client, Config, Group}
@@ -14,12 +21,26 @@ defmodule KafkaManager.Kafka.Groups do
   count, total lag and per-partition lag breakdown.
   """
   @spec list_groups(Config.t()) :: {:ok, [Group.t()]} | {:error, BrokerError.t()}
-  def list_groups(%Config{} = config) do
+  def list_groups(%Config{} = config), do: fetch_groups(config, :all)
+
+  @doc """
+  Every consumer group that reads the given topic — committed on it, or
+  with a member currently assigned to it — with its state and its lag on
+  that topic only. Sorted by group id.
+  """
+  @spec topic_groups(Config.t(), String.t()) :: {:ok, [Group.t()]} | {:error, BrokerError.t()}
+  def topic_groups(%Config{} = config, topic) when is_binary(topic) do
+    with {:ok, groups} <- fetch_groups(config, {:topic, topic}) do
+      {:ok, Enum.sort_by(groups, & &1.id)}
+    end
+  end
+
+  defp fetch_groups(config, scope) do
     with {:ok, groups} <- Client.list_groups(config),
          {:ok, described} <- describe_by_coordinator(config, groups),
          {:ok, metadata} <- Client.metadata(config),
          {:ok, commits_by_group} <- fetch_all_committed(config, described) do
-      build_groups(config, metadata, described, commits_by_group)
+      build_groups(config, metadata, described, commits_by_group, scope)
     end
   end
 
@@ -42,7 +63,8 @@ defmodule KafkaManager.Kafka.Groups do
 
       with {:ok, earliest} <- Client.list_offsets(config, pairs, :earliest),
            {:ok, latest} <- Client.list_offsets(config, pairs, :latest) do
-        build_group(config, described, commits, partitions_by_topic, earliest, latest)
+        topics = commits |> topics_committed() |> Enum.uniq()
+        build_group(config, described, commits, partitions_by_topic, earliest, latest, topics)
       end
     end
   end
@@ -124,16 +146,22 @@ defmodule KafkaManager.Kafka.Groups do
     end)
   end
 
-  defp build_groups(config, metadata, described, commits_by_group) do
+  defp build_groups(config, metadata, described, commits_by_group, scope) do
     partitions_by_topic = partitions_by_topic(metadata)
 
+    described =
+      Enum.filter(described, &group_in_scope?(&1, Map.get(commits_by_group, &1.id, %{}), scope))
+
     pairs =
-      commits_by_group
-      |> Map.values()
-      |> Enum.flat_map(&topics_committed/1)
-      |> Enum.uniq()
-      |> Enum.flat_map(fn topic ->
-        Enum.map(Map.get(partitions_by_topic, topic, []), &{topic, &1})
+      described
+      |> Enum.flat_map(fn group ->
+        commits = Map.get(commits_by_group, group.id, %{})
+
+        group
+        |> scoped_topics(commits, scope)
+        |> Enum.flat_map(fn topic ->
+          Enum.map(Map.get(partitions_by_topic, topic, []), &{topic, &1})
+        end)
       end)
       |> Enum.uniq()
 
@@ -141,10 +169,26 @@ defmodule KafkaManager.Kafka.Groups do
          {:ok, latest} <- Client.list_offsets(config, pairs, :latest) do
       reduce_ok(described, fn group ->
         commits = Map.get(commits_by_group, group.id, %{})
-        build_group(config, group, commits, partitions_by_topic, earliest, latest)
+        topics = scoped_topics(group, commits, scope)
+        build_group(config, group, commits, partitions_by_topic, earliest, latest, topics)
       end)
     end
   end
+
+  # A group is in `:all` scope unconditionally. In `{:topic, name}` scope it
+  # is kept only if it has committed an offset on that topic or currently
+  # has a member assigned to it (docs/PLAN.md 2.6, DECISIONS.md).
+  defp group_in_scope?(_group, _commits, :all), do: true
+
+  defp group_in_scope?(group, commits, {:topic, topic}) do
+    topic in topics_committed(commits) or topic in Map.get(group, :assigned_topics, [])
+  end
+
+  # The topics a group's `partitions`/`total_lag` are computed over: every
+  # topic it committed to in `:all` scope, or only the scoped topic in
+  # `{:topic, name}` scope.
+  defp scoped_topics(_group, commits, :all), do: commits |> topics_committed() |> Enum.uniq()
+  defp scoped_topics(_group, _commits, {:topic, topic}), do: [topic]
 
   defp topics_committed(commits), do: commits |> Map.keys() |> Enum.map(&elem(&1, 0))
 
@@ -169,9 +213,9 @@ defmodule KafkaManager.Kafka.Groups do
   # partition-level error) must not raise via `Map.fetch!/2` here in the
   # calling process, outside `Client`'s own crash containment. It becomes a
   # `%BrokerError{}` instead.
-  defp build_group(config, group, commits, partitions_by_topic, earliest, latest) do
+  defp build_group(config, group, commits, partitions_by_topic, earliest, latest, topics) do
     pairs =
-      for topic <- commits |> topics_committed() |> Enum.uniq(),
+      for topic <- topics,
           partition <- Map.get(partitions_by_topic, topic, []),
           do: {topic, partition}
 

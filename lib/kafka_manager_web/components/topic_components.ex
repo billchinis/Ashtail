@@ -96,6 +96,7 @@ defmodule KafkaManagerWeb.TopicComponents do
     [
       %{action: :data, label: "Data", path: ~p"/topics/#{topic_name}"},
       %{action: :partitions, label: "Partitions", path: ~p"/topics/#{topic_name}/partitions"},
+      %{action: :groups, label: "Consumer Groups", path: ~p"/topics/#{topic_name}/groups"},
       %{action: :configs, label: "Configs", path: ~p"/topics/#{topic_name}/configs"}
     ]
   end

@@ -1,0 +1,33 @@
+<Layouts.app flash={@flash} section={:topics}>
+  <.topic_header
+    topic_name={@topic_name}
+    topic={@topic}
+    active={:groups}
+    broker_error={@broker_error}
+  />
+
+  <div class="mt-6">
+    <.table
+      id="topic-groups"
+      rows={@streams.topic_groups}
+      empty="No consumer group reads this topic."
+      row_attrs={
+        fn g ->
+          %{"data-group" => g.id, "data-group-state" => g.state, class: state_class(g.state)}
+        end
+      }
+    >
+      <:col :let={g} label="Group">
+        <.link navigate={~p"/groups/#{g.id}"} class="link link-hover font-mono break-all">
+          {g.id}
+        </.link>
+      </:col>
+      <:col :let={g} label="State" class="sm:w-48">
+        <.state_pill state={g.state} />
+      </:col>
+      <:col :let={g} label="Lag on this topic" class="sm:w-40">
+        <.lag lag={g.total_lag} class="text-2xl" />
+      </:col>
+    </.table>
+  </div>
+</Layouts.app>

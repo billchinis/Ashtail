@@ -302,7 +302,11 @@ defmodule KafkaManager.Kafka.Client do
   @doc """
   Describes the given group ids against the coordinator endpoint they were
   found on (the `coordinator` hint from `list_groups/1`), via
-  `:brod.describe_groups/3`.
+  `:brod.describe_groups/3`. `assigned_topics` is decoded from each live
+  member's `member_assignment` bytes (brod's DescribeGroups only
+  auto-decodes a field literally named `assignment`, and this one is named
+  `member_assignment`) — used by AC-16 to keep a group with a live member on
+  a topic it has not committed to yet.
   """
   @spec describe_groups(Config.t(), term(), [String.t()]) ::
           {:ok,
@@ -311,7 +315,8 @@ defmodule KafkaManager.Kafka.Client do
                id: String.t(),
                state: String.t(),
                protocol_type: String.t(),
-               member_count: non_neg_integer()
+               member_count: non_neg_integer(),
+               assigned_topics: [String.t()]
              }
            ]}
           | {:error, BrokerError.t()}
@@ -332,8 +337,47 @@ defmodule KafkaManager.Kafka.Client do
          protocol_type: protocol_type,
          members: members
        }) do
-    %{id: id, state: state, protocol_type: protocol_type, member_count: length(members)}
+    %{
+      id: id,
+      state: state,
+      protocol_type: protocol_type,
+      member_count: length(members),
+      assigned_topics: assigned_topics(protocol_type, members)
+    }
   end
+
+  defp assigned_topics("consumer", members) do
+    members |> Enum.flat_map(&member_assigned_topics/1) |> Enum.uniq()
+  end
+
+  defp assigned_topics(_protocol_type, _members), do: []
+
+  defp member_assigned_topics(%{member_assignment: bytes}) do
+    case decode_member_assignment(bytes) do
+      {:ok, topics} -> topics
+      :error -> []
+    end
+  end
+
+  # Bytes that fail to decode (an empty assignment, a member mid-rebalance
+  # with no assignment yet, or a protocol shape this app does not model)
+  # mean "no assignment", never a raise.
+  defp decode_member_assignment(bytes) when is_binary(bytes) and byte_size(bytes) > 0 do
+    schema = :kpro_lib.get_prelude_schema(:cg_memeber_assignment, 0)
+
+    try do
+      {%{topic_partitions: topic_partitions}, _rest} =
+        :kpro_rsp_lib.dec_struct(schema, %{}, [], bytes)
+
+      {:ok, Enum.map(topic_partitions, & &1.topic)}
+    rescue
+      _ -> :error
+    catch
+      _, _ -> :error
+    end
+  end
+
+  defp decode_member_assignment(_bytes), do: :error
 
   @doc """
   Committed offsets for every partition a group has committed against, via

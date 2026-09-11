@@ -72,4 +72,12 @@ defmodule KafkaManager.Kafka do
   @spec get_group(String.t()) ::
           {:ok, KafkaManager.Kafka.Group.t()} | {:error, KafkaManager.Kafka.BrokerError.t()}
   def get_group(group_id), do: Groups.get_group(config(), group_id)
+
+  @doc """
+  Every consumer group that reads the given topic, with its state and its
+  lag on that topic only. See `KafkaManager.Kafka.Groups.topic_groups/2`.
+  """
+  @spec topic_groups(String.t()) ::
+          {:ok, [KafkaManager.Kafka.Group.t()]} | {:error, KafkaManager.Kafka.BrokerError.t()}
+  def topic_groups(name), do: Groups.topic_groups(config(), name)
 end
