@@ -141,4 +141,13 @@
 /* Make LiveView wrapper divs transparent for layout */
 [data-phx-session], [data-phx-teleported-src] { display: contents }
 
+/* The disabled "Remove" button on the produce form's only header row stays
+   legible: daisyUI's default disabled btn foreground is a 20% tint of
+   base-content, unreadable in both themes. This rule is unlayered, so it
+   overrides daisyUI's layered `.btn:disabled` rule regardless of
+   specificity. */
+[data-remove-header]:disabled {
+  --btn-fg: color-mix(in oklch, var(--color-base-content) 60%, transparent);
+}
+
 /* This file is for your main application CSS */

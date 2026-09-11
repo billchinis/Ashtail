@@ -442,6 +442,7 @@ defmodule KafkaManagerWeb.CoreComponents do
             id={@row_id && @row_id.(row)}
             class={[
               "hover:bg-base-200/60 max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3",
+              "max-sm:border-b max-sm:border-base-300 max-sm:last:border-b-0",
               Map.get(@row_attrs.(@row_item.(row)), :class)
             ]}
             {Map.delete(@row_attrs.(@row_item.(row)), :class)}
@@ -450,7 +451,7 @@ defmodule KafkaManagerWeb.CoreComponents do
               :for={{col, i} <- Enum.with_index(@col)}
               phx-click={@row_click && @row_click.(row)}
               class={[
-                "py-3 px-4 align-top",
+                "py-3 px-4 align-top max-sm:border-b-0",
                 i == 0 && "max-sm:w-full",
                 i > 0 && "max-sm:text-xs",
                 @row_click && "hover:cursor-pointer",
@@ -460,7 +461,7 @@ defmodule KafkaManagerWeb.CoreComponents do
             >
               {render_slot(col, @row_item.(row))}
             </td>
-            <td :if={@action != []} class="py-3 px-4 w-0 font-semibold">
+            <td :if={@action != []} class="py-3 px-4 w-0 font-semibold max-sm:border-b-0">
               <div class="flex gap-4">
                 <%= for action <- @action do %>
                   {render_slot(action, @row_item.(row))}

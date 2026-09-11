@@ -71,7 +71,7 @@ defmodule KafkaManagerWeb.TopicComponents do
           <.link
             :for={tab <- tabs(@topic_name)}
             navigate={tab.path}
-            class="tab"
+            class="tab shrink-0 whitespace-nowrap"
             aria-current={tab.action == @active && "page"}
           >
             {tab.label}
@@ -81,7 +81,7 @@ defmodule KafkaManagerWeb.TopicComponents do
         <.link
           navigate={~p"/topics/#{@topic_name}/produce"}
           data-produce-link
-          class="btn btn-primary btn-sm rounded-full self-start phx-click-loading:opacity-60"
+          class="btn btn-primary btn-sm rounded-full self-start sm:self-auto phx-click-loading:opacity-60"
         >
           <.icon name="hero-paper-airplane" class="size-4" /> Produce
         </.link>

@@ -17,8 +17,8 @@
           @filter_errors != %{} && "collapse-open"
         ]}
       >
-        <input type="checkbox" class="peer" aria-label="Toggle filters" />
-        <div class="collapse-title sm:hidden min-h-12 flex items-center gap-2 px-5">
+        <input type="checkbox" class="peer sm:hidden p-0 min-h-0" aria-label="Toggle filters" />
+        <div class="collapse-title sm:hidden min-h-12 h-12 py-0 flex items-center gap-2 px-5">
           <span>Filters</span>
           <span
             :if={applied_filter_count(@filter_params) > 0}
@@ -26,7 +26,7 @@
           >{applied_filter_count(@filter_params)}</span>
           <.icon name="hero-chevron-down" class="size-4 ml-auto" />
         </div>
-        <div class="collapse-content">
+        <div class="collapse-content p-0!">
           <div class="card-body p-5 gap-4">
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <fieldset class="fieldset">
@@ -283,7 +283,7 @@
         <% end %>
       </div>
 
-      <div class="ml-auto flex items-center gap-3">
+      <div class="flex items-center gap-3 max-sm:w-full sm:ml-auto">
         <.page_size_select page_size={@page_size} />
         <.tail_control tailing?={@tailing?} />
       </div>
@@ -322,7 +322,7 @@
         <% end %>
       </:empty>
       <.message_row message={message} show_partition={true} />
-      <:footer>
+      <:footer :if={@newer || @older}>
         <.pager
           prev_patch={@newer && DataParams.path(@topic_name, @filter_params, @page_size, @newer)}
           next_patch={@older && DataParams.path(@topic_name, @filter_params, @page_size, @older)}

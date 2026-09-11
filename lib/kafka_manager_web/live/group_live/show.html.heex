@@ -54,8 +54,8 @@
       <:col :let={p} label="Partition" numeric>{p.partition}</:col>
       <:col :let={p} label="Committed offset" numeric>{p.committed_offset}</:col>
       <:col :let={p} label="Latest offset" numeric>{p.latest_offset}</:col>
-      <:col :let={p} label="Lag">
-        <.lag lag={p.lag} class="text-xl" />
+      <:col :let={p} label="Lag" numeric>
+        <.lag lag={p.lag} class="text-xl leading-none" />
       </:col>
     </.table>
   </div>

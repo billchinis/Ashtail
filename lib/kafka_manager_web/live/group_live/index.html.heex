@@ -29,8 +29,8 @@
     <:col :let={group} label="Members" numeric class="sm:w-24">
       {group.member_count}
     </:col>
-    <:col :let={group} label="Total lag" class="sm:w-36">
-      <.lag lag={group.total_lag} class="text-2xl" />
+    <:col :let={group} label="Total lag" numeric class="sm:w-36">
+      <.lag lag={group.total_lag} class="text-2xl leading-none" />
     </:col>
     <:col :let={group} label="Partitions" class="max-sm:basis-full">
       <button

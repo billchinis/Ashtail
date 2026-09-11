@@ -132,7 +132,7 @@ defmodule KafkaManagerWeb.MessageComponents do
   def message_row(assigns) do
     ~H"""
     <div>
-      <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs font-mono">
+      <div class="flex flex-wrap items-center gap-x-2 sm:gap-x-3 gap-y-0.5 sm:gap-y-1 text-xs font-mono">
         <span :if={@show_partition}>
           <span class="text-base-content/50">partition</span>
           <span class="text-base-content">{@message.partition}</span>
@@ -144,7 +144,7 @@ defmodule KafkaManagerWeb.MessageComponents do
         <span class="text-base-content/60">{@message.timestamp}</span>
         <.message_headers :if={@message.headers != []} headers={@message.headers} />
       </div>
-      <div class="mt-1.5 grid gap-x-6 gap-y-1 sm:grid-cols-[18rem_minmax(0,1fr)]">
+      <div class="mt-1 sm:mt-1.5 grid gap-x-6 gap-y-0.5 sm:gap-y-1 sm:grid-cols-[18rem_minmax(0,1fr)]">
         <.message_key key={@message.key} expanded?={@message.expanded?} />
         <.message_value
           value={@message.value}
@@ -211,7 +211,7 @@ defmodule KafkaManagerWeb.MessageComponents do
         <li
           :for={row <- @rows}
           id={@row_id.(row)}
-          class="list-row px-5 py-2.5"
+          class="list-row px-4 sm:px-5 py-2 sm:py-2.5"
           {@row_attrs.(@row_item.(row))}
         >
           <div class="list-col-grow">

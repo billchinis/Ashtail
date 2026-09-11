@@ -19,6 +19,19 @@
       <.tail_control tailing?={@tailing?} />
     </div>
 
+    <% prev_patch =
+      if @earliest != nil and @offset > @earliest,
+        do:
+          message_path(
+            @topic_name,
+            @partition,
+            max(@earliest, @offset - @page_size),
+            @page_size
+          )
+
+    next_patch =
+      if @latest != nil and @offset + @page_size < @latest,
+        do: message_path(@topic_name, @partition, @offset + @page_size, @page_size) %>
     <.message_list
       :let={message}
       id="messages"
@@ -31,23 +44,8 @@
     >
       <:empty>No messages at this offset.</:empty>
       <.message_row message={message} />
-      <:footer>
-        <.pager
-          prev_patch={
-            if @earliest != nil and @offset > @earliest,
-              do:
-                message_path(
-                  @topic_name,
-                  @partition,
-                  max(@earliest, @offset - @page_size),
-                  @page_size
-                )
-          }
-          next_patch={
-            if @latest != nil and @offset + @page_size < @latest,
-              do: message_path(@topic_name, @partition, @offset + @page_size, @page_size)
-          }
-        />
+      <:footer :if={prev_patch || next_patch}>
+        <.pager prev_patch={prev_patch} next_patch={next_patch} />
       </:footer>
     </.message_list>
   </div>
