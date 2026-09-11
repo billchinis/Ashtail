@@ -312,34 +312,53 @@ defmodule KafkaManagerWeb.CoreComponents do
   end
 
   @doc """
-  Renders a header with title.
+  Renders a page header (docs/DESIGN.md "Type"): an optional eyebrow line,
+  a serif `h1`, an optional subtitle sharing the title's baseline, and an
+  optional actions slot on the right.
+
+  ## Examples
+
+      <.header>
+        Topics
+        <:subtitle>{@total} topics</:subtitle>
+      </.header>
   """
+  slot :eyebrow
   slot :inner_block, required: true
   slot :subtitle
   slot :actions
 
   def header(assigns) do
     ~H"""
-    <header class={[@actions != [] && "flex items-center justify-between gap-6", "pb-4"]}>
-      <div>
-        <h1 class="text-lg font-semibold leading-8">
-          {render_slot(@inner_block)}
-        </h1>
-        <p :if={@subtitle != []} class="text-sm text-base-content/70">
-          {render_slot(@subtitle)}
+    <header class={[@actions != [] && "flex items-start justify-between gap-6", "pb-6"]}>
+      <div class="min-w-0">
+        <p :if={@eyebrow != []} class="text-sm text-base-content/60 mb-1">
+          {render_slot(@eyebrow)}
         </p>
+        <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+          <h1 class="font-serif text-2xl sm:text-3xl font-semibold tracking-tight break-all">
+            {render_slot(@inner_block)}
+          </h1>
+          <p :if={@subtitle != []} class="text-sm text-base-content/60">
+            {render_slot(@subtitle)}
+          </p>
+        </div>
       </div>
-      <div class="flex-none">{render_slot(@actions)}</div>
+      <div :if={@actions != []} class="flex-none">{render_slot(@actions)}</div>
     </header>
     """
   end
 
   @doc """
-  Renders a table with generic styling.
+  Renders every non-message table (docs/PLAN.md P7, docs/DESIGN.md "Tables"):
+  a plain `table` sitting inside a `card bg-base-100 shadow-sm
+  overflow-x-auto` sheet, hairline rows, and a stream-safe empty state as
+  the stream container's first child. Below `sm`, the header hides and each
+  row wraps into a flex line with its first cell full width.
 
   ## Examples
 
-      <.table id="users" rows={@users}>
+      <.table id="users" rows={@streams.users}>
         <:col :let={user} label="id">{user.id}</:col>
         <:col :let={user} label="username">{user.username}</:col>
       </.table>
@@ -350,50 +369,103 @@ defmodule KafkaManagerWeb.CoreComponents do
   attr :row_click, :any, default: nil, doc: "the function for handling phx-click on each row"
 
   attr :row_item, :any,
-    default: &Function.identity/1,
-    doc: "the function for mapping each row before calling the :col and :action slots"
+    default: nil,
+    doc:
+      "the function for mapping each row before calling the :col and :action slots; " <>
+        "defaults to identity, or to unwrapping {dom_id, item} for a stream"
+
+  attr :row_attrs, :any,
+    default: nil,
+    doc:
+      "a function from the mapped row item to a map of extra <tr> attributes " <>
+        "(the P5 test hooks and any state-* class go through this)"
+
+  attr :empty, :string, default: "No results.", doc: "the empty-state sentence"
 
   slot :col, required: true do
     attr :label, :string
+    attr :numeric, :boolean
+    attr :class, :any
   end
 
   slot :action, doc: "the slot for showing user actions in the last table column"
 
   def table(assigns) do
+    stream? = is_struct(assigns.rows, Phoenix.LiveView.LiveStream)
+
     assigns =
-      with %{rows: %Phoenix.LiveView.LiveStream{}} <- assigns do
-        assign(assigns, row_id: assigns.row_id || fn {id, _item} -> id end)
-      end
+      assigns
+      |> assign(:row_id, assigns.row_id || (stream? && fn {id, _item} -> id end))
+      |> assign(
+        :row_item,
+        assigns.row_item ||
+          if(stream?, do: fn {_id, item} -> item end, else: &Function.identity/1)
+      )
+      |> assign(:row_attrs, assigns.row_attrs || fn _item -> %{} end)
+      |> assign(:colspan, length(assigns.col) + if(assigns.action != [], do: 1, else: 0))
+      |> assign(:stream?, stream?)
 
     ~H"""
-    <table class="table table-zebra">
-      <thead>
-        <tr>
-          <th :for={col <- @col}>{col[:label]}</th>
-          <th :if={@action != []}>
-            <span class="sr-only">Actions</span>
-          </th>
-        </tr>
-      </thead>
-      <tbody id={@id} phx-update={is_struct(@rows, Phoenix.LiveView.LiveStream) && "stream"}>
-        <tr :for={row <- @rows} id={@row_id && @row_id.(row)}>
-          <td
-            :for={col <- @col}
-            phx-click={@row_click && @row_click.(row)}
-            class={@row_click && "hover:cursor-pointer"}
+    <div class="card bg-base-100 shadow-sm overflow-x-auto">
+      <table class="table">
+        <thead class="max-sm:hidden">
+          <tr>
+            <th
+              :for={col <- @col}
+              class={[
+                "text-xs font-medium uppercase tracking-wide text-base-content/50",
+                col[:numeric] && "text-right tabular-nums whitespace-nowrap",
+                col[:class]
+              ]}
+            >
+              {col[:label]}
+            </th>
+            <th :if={@action != []}>
+              <span class="sr-only">Actions</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody id={@id} phx-update={@stream? && "stream"}>
+          <tr id={@id <> "-empty"} class="hidden only:table-row">
+            <td colspan={@colspan} class="py-16 text-center text-sm text-base-content/60">
+              <.icon name="hero-inbox" class="size-6 mx-auto mb-2 opacity-60" />
+              <div>{@empty}</div>
+            </td>
+          </tr>
+          <tr
+            :for={row <- @rows}
+            id={@row_id && @row_id.(row)}
+            class={[
+              "hover:bg-base-200/60 max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3",
+              Map.get(@row_attrs.(@row_item.(row)), :class)
+            ]}
+            {Map.delete(@row_attrs.(@row_item.(row)), :class)}
           >
-            {render_slot(col, @row_item.(row))}
-          </td>
-          <td :if={@action != []} class="w-0 font-semibold">
-            <div class="flex gap-4">
-              <%= for action <- @action do %>
-                {render_slot(action, @row_item.(row))}
-              <% end %>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+            <td
+              :for={{col, i} <- Enum.with_index(@col)}
+              phx-click={@row_click && @row_click.(row)}
+              class={[
+                "py-3 px-4 align-top",
+                i == 0 && "max-sm:w-full",
+                i > 0 && "max-sm:text-xs",
+                @row_click && "hover:cursor-pointer",
+                col[:numeric] && "text-right tabular-nums whitespace-nowrap",
+                col[:class]
+              ]}
+            >
+              {render_slot(col, @row_item.(row))}
+            </td>
+            <td :if={@action != []} class="py-3 px-4 w-0 font-semibold">
+              <div class="flex gap-4">
+                <%= for action <- @action do %>
+                  {render_slot(action, @row_item.(row))}
+                <% end %>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     """
   end
 

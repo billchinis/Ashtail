@@ -34,69 +34,73 @@ defmodule KafkaManagerWeb.Layouts do
   attr :section, :atom,
     default: nil,
     values: [nil, :topics, :groups],
-    doc: "the active sidebar/dock section, so the current item can be marked active"
+    doc: "the active nav section, so the current item can be marked active"
 
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
-    <div class="lg:flex lg:min-h-screen bg-base-100 text-base-content">
-      <aside class="hidden lg:flex lg:flex-col lg:w-56 lg:shrink-0 bg-base-200 border-r border-base-300 lg:sticky lg:top-0 lg:h-screen">
-        <div class="h-14 px-4 flex items-center gap-2">
-          <.icon name="hero-circle-stack" class="size-5" />
-          <span class="text-base font-semibold">KafkaManager</span>
+    <header class="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center gap-8">
+      <div class="order-1 flex items-center gap-2">
+        <.icon name="hero-circle-stack" class="size-5 text-primary" />
+        <span class="text-base font-semibold tracking-tight">KafkaManager</span>
+      </div>
+
+      <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">
+        <div
+          tabindex="0"
+          role="button"
+          class="btn btn-ghost btn-sm btn-square sm:hidden"
+          aria-label="Menu"
+        >
+          <.icon name="hero-bars-3" class="size-5" />
         </div>
-        <ul class="menu w-full">
-          <li class="menu-title">Cluster</li>
+        <ul
+          tabindex="0"
+          class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-center sm:gap-6 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
+        >
           <li>
-            <.link navigate={~p"/"} data-nav-topics class={[@section == :topics && "menu-active"]}>
-              <.icon name="hero-queue-list" class="size-4" /> Topics
+            <.link
+              navigate={~p"/"}
+              data-nav-topics
+              aria-current={@section == :topics && "true"}
+              class={nav_link_class(@section == :topics)}
+            >
+              Topics
             </.link>
           </li>
           <li>
             <.link
               navigate={~p"/groups"}
               data-nav-groups
-              class={[@section == :groups && "menu-active"]}
+              aria-current={@section == :groups && "true"}
+              class={nav_link_class(@section == :groups)}
             >
-              <.icon name="hero-user-group" class="size-4" /> Consumer groups
+              Consumer groups
             </.link>
           </li>
         </ul>
-        <div class="mt-auto p-4">
-          <.theme_toggle />
-        </div>
-      </aside>
-
-      <div class="flex flex-col min-w-0 lg:flex-1 lg:min-h-0">
-        <div class="lg:hidden navbar min-h-12 bg-base-200 border-b border-base-300 sticky top-0 z-20 px-4">
-          <div class="flex-1 flex items-center gap-2">
-            <.icon name="hero-circle-stack" class="size-5" />
-            <span class="text-base font-semibold">KafkaManager</span>
-          </div>
-          <.theme_toggle />
-        </div>
-
-        <main class="bg-base-100 px-4 py-4 pb-20 lg:px-6 lg:py-5 lg:pb-5 lg:flex-1 lg:flex lg:flex-col lg:min-h-0">
-          {render_slot(@inner_block)}
-        </main>
-
-        <div class="dock dock-sm bg-base-200 border-t border-base-300 fixed bottom-0 inset-x-0 z-20 lg:hidden">
-          <.link navigate={~p"/"} class={[@section == :topics && "dock-active"]}>
-            <.icon name="hero-queue-list" class="size-5" />
-            <span class="dock-label">Topics</span>
-          </.link>
-          <.link navigate={~p"/groups"} class={[@section == :groups && "dock-active"]}>
-            <.icon name="hero-user-group" class="size-5" />
-            <span class="dock-label">Groups</span>
-          </.link>
-        </div>
       </div>
-    </div>
+
+      <div class="order-2 sm:order-3 ml-auto">
+        <.theme_toggle />
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto px-4 sm:px-8 pt-8 pb-16">
+      {render_slot(@inner_block)}
+    </main>
 
     <.flash_group flash={@flash} />
     """
   end
+
+  defp nav_link_class(true) do
+    "text-sm text-base-content font-medium underline decoration-2 " <>
+      "decoration-primary underline-offset-8"
+  end
+
+  defp nav_link_class(false), do: "text-sm text-base-content/60 hover:text-base-content"
 
   @doc """
   Shows the flash group with standard titles and content.
@@ -154,8 +158,8 @@ defmodule KafkaManagerWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center border-2 border-base-300 bg-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full border-1 border-base-200 bg-base-100 brightness-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
+    <div class="card relative flex flex-row items-center bg-base-100 shadow-sm rounded-full">
+      <div class="absolute w-1/3 h-full rounded-full bg-base-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
 
       <button
         class="flex p-2 cursor-pointer w-1/3"

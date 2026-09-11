@@ -21,14 +21,16 @@ defmodule KafkaManagerWeb.BrokerComponents do
       id="broker-error"
       role="alert"
       data-broker-error
-      class="alert alert-error alert-vertical sm:alert-horizontal w-full"
+      class="card bg-base-100 shadow-sm border-l-4 border-error"
     >
-      <.icon name="hero-exclamation-triangle" class="size-5 shrink-0" />
-      <div>
-        <p class="font-semibold">
-          Could not reach the broker at <strong>{@error.address}</strong>.
-        </p>
-        <p class="text-sm opacity-80">{@error.message}</p>
+      <div class="card-body flex-row gap-3 p-5">
+        <.icon name="hero-exclamation-triangle" class="size-5 shrink-0 text-error" />
+        <div>
+          <p class="font-semibold">
+            Could not reach the broker at <strong class="break-all">{@error.address}</strong>.
+          </p>
+          <p class="text-sm text-base-content/70">{@error.message}</p>
+        </div>
       </div>
     </div>
     """

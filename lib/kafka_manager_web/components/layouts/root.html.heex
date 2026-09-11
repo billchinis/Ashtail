@@ -31,12 +31,12 @@
           if (stored) {
             setTheme(stored);
           } else {
-            // No stored choice: default to dark regardless of the OS setting
-            // (docs/DESIGN.md Assumption 1). Leave data-theme-source unset so
-            // the toggle highlights "dark" (not "system") and the
-            // prefers-color-scheme listener below ignores OS changes until
-            // the user actually picks "system".
-            document.documentElement.setAttribute("data-theme", "dark");
+            // No stored choice: default to light ("Paper") regardless of the
+            // OS setting (docs/DESIGN.md Assumption 1). Leave
+            // data-theme-source unset so the toggle highlights "light" (not
+            // "system") and the prefers-color-scheme listener below ignores
+            // OS changes until the user actually picks "system".
+            document.documentElement.setAttribute("data-theme", "light");
           }
         }
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
@@ -50,7 +50,7 @@
       })();
     </script>
   </head>
-  <body class="bg-base-100 text-base-content">
+  <body class="bg-base-200 text-base-content">
     {@inner_content}
   </body>
 </html>

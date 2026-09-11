@@ -13,7 +13,7 @@ defmodule KafkaManagerWeb.TopicLive.Show do
   def mount(_params, _session, socket) do
     socket =
       socket
-      |> assign(broker_error: nil)
+      |> assign(broker_error: nil, topic: nil)
       |> stream_configure(:partitions, dom_id: &("partition-" <> to_string(&1.id)))
       |> stream_configure(:topic_configs, dom_id: &("config-" <> slug(&1.name)))
       |> stream(:partitions, [])
@@ -36,12 +36,12 @@ defmodule KafkaManagerWeb.TopicLive.Show do
     case Kafka.get_topic(name) do
       {:ok, topic} ->
         socket
-        |> assign(broker_error: nil)
+        |> assign(broker_error: nil, topic: topic)
         |> stream(:partitions, topic.partitions, reset: true)
         |> stream(:topic_configs, topic.config, reset: true)
 
       {:error, %BrokerError{} = error} ->
-        assign(socket, broker_error: error)
+        assign(socket, broker_error: error, topic: nil)
     end
   end
 
