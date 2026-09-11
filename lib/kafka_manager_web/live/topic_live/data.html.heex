@@ -17,7 +17,7 @@
           @filter_errors != %{} && "collapse-open"
         ]}
       >
-        <input type="checkbox" class="peer" />
+        <input type="checkbox" class="peer" aria-label="Toggle filters" />
         <div class="collapse-title sm:hidden min-h-12 flex items-center gap-2 px-5">
           <span>Filters</span>
           <span
@@ -270,7 +270,13 @@
       >
         <%= if @scan_state == :complete do %>
           <.icon name="hero-check-circle" class="size-4 text-success" />
-          <span class="text-base-content/60">{@scanned} messages checked</span>
+          <span class="text-base-content/60">
+            <%= if Filter.active?(@filter) do %>
+              {@scanned} messages checked
+            <% else %>
+              {@scanned} messages loaded
+            <% end %>
+          </span>
         <% else %>
           <span class="loading loading-dots loading-sm text-primary" />
           <span class="font-medium">Searching… {@scanned} messages checked</span>

@@ -89,8 +89,13 @@ defmodule KafkaManager.Kafka.Client do
     run(config, fn -> fetch_list_offsets(config, partitions, which) end)
   end
 
-  def list_offsets(%Config{} = config, partitions, {:timestamp, ms} = which)
+  def list_offsets(%Config{} = config, partitions, {:timestamp, ms})
       when is_list(partitions) and is_integer(ms) do
+    # A negative millisecond timestamp (a `from`/`to` before the Unix epoch)
+    # must never reach the wire as-is: `-1` and `-2` are the ListOffsets
+    # sentinels for "latest" and "earliest" (1.4), so an unclamped `-1` here
+    # would silently be read as "latest" instead of "the start of time".
+    which = {:timestamp, max(ms, 0)}
     run(config, fn -> fetch_list_offsets(config, partitions, which) end)
   end
 
@@ -354,9 +359,37 @@ defmodule KafkaManager.Kafka.Client do
     end
   end
 
-  defp log_dirs_from_broker(config, brokers, broker_id, topic, partition_ids) do
-    endpoint = Map.fetch!(brokers, broker_id)
+  # A replica can name a broker id that metadata's own `brokers` list does not
+  # carry (e.g. it went offline between the partition metadata and this
+  # lookup). `Map.fetch!/2` would raise in that case; this is a readable
+  # `%BrokerError{}` instead. Exposed (`@doc false`) so the translation is
+  # unit-testable with a fabricated `brokers` map: the live single-broker
+  # Redpanda in dev can never produce a replica whose broker is missing from
+  # its own metadata.
+  @doc false
+  @spec log_dirs_from_broker(Config.t(), map(), integer(), String.t(), [non_neg_integer()]) ::
+          {:ok, list()} | {:error, BrokerError.t()}
+  def log_dirs_from_broker(config, brokers, broker_id, topic, partition_ids) do
+    case Map.fetch(brokers, broker_id) do
+      {:ok, endpoint} ->
+        fetch_log_dirs_from_broker(config, endpoint, broker_id, topic, partition_ids)
 
+      :error ->
+        {:error, missing_broker_error(config, broker_id)}
+    end
+  end
+
+  defp missing_broker_error(config, broker_id) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :missing_broker,
+      message:
+        "Broker #{broker_id} hosts a replica of this topic but is missing from the " <>
+          "cluster metadata. It may have gone offline; try again."
+    }
+  end
+
+  defp fetch_log_dirs_from_broker(config, endpoint, broker_id, topic, partition_ids) do
     case :kpro.connect(endpoint, conn_config(config)) do
       {:ok, connection} ->
         try do

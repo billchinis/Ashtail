@@ -18,7 +18,7 @@ defmodule KafkaManager.Kafka.TopicReader do
   instead of scanning from the beginning (docs/PLAN.md 2.4).
   """
 
-  alias KafkaManager.Kafka.{BrokerError, Client, Config, Filter, Messages}
+  alias KafkaManager.Kafka.{BrokerError, Client, Config, Filter, Message, Messages}
 
   @default_page_size 50
   @scan_chunk 500
@@ -117,7 +117,7 @@ defmodule KafkaManager.Kafka.TopicReader do
     starts = init_starts(partition_ids, floor, ceiling, cursor, direction)
     state = init_state(starts, floor, ceiling, direction)
 
-    case step(config, topic, ctx, state, [], 0) do
+    case step(config, topic, ctx, state, [], 0, []) do
       {:ok, final_state, messages, scanned, halted} ->
         # `step/6` returns messages in emission order: newest first for a
         # backward read, oldest first for a forward one. The result is
@@ -217,13 +217,17 @@ defmodule KafkaManager.Kafka.TopicReader do
   # `on_progress`. Stops early, with `halted` set, the moment a regular
   # expression hits its backtracking limit (docs/PLAN.md 2.5); stops early,
   # with `halted` `nil`, once the scan budget (`max_scanned`) is spent.
-  defp step(config, topic, ctx, state, page, scanned) do
+  # `pending` carries the messages emitted since the last progress report, in
+  # emission order (newest first): only rows the merge has actually emitted
+  # may ever reach `on_progress`, never rows merely buffered by a refill
+  # (docs/PLAN.md 2.4, "Refill" step 4).
+  defp step(config, topic, ctx, state, page, scanned, pending) do
     cond do
       length(page) >= ctx.page_size -> stopped(state, page, scanned)
       all_exhausted_empty?(state) -> stopped(state, page, scanned)
-      ready_to_emit?(state) -> emit(config, topic, ctx, state, page, scanned)
+      ready_to_emit?(state) -> emit(config, topic, ctx, state, page, scanned, pending)
       budget_spent?(ctx, scanned) -> stopped(state, page, scanned)
-      true -> refill_and_continue(config, topic, ctx, state, page, scanned)
+      true -> refill_and_continue(config, topic, ctx, state, page, scanned, pending)
     end
   end
 
@@ -232,16 +236,16 @@ defmodule KafkaManager.Kafka.TopicReader do
   defp budget_spent?(%{max_scanned: :infinity}, _scanned), do: false
   defp budget_spent?(%{max_scanned: max_scanned}, scanned), do: scanned >= max_scanned
 
-  defp emit(config, topic, ctx, state, page, scanned) do
+  defp emit(config, topic, ctx, state, page, scanned, pending) do
     {msg, state2} = pop_best(state, ctx.direction)
-    step(config, topic, ctx, state2, [msg | page], scanned)
+    step(config, topic, ctx, state2, [msg | page], scanned, [msg | pending])
   end
 
-  defp refill_and_continue(config, topic, ctx, state, page, scanned) do
-    case refill_all(config, topic, ctx, state) do
-      {:ok, state2, added, matched, halted} ->
+  defp refill_and_continue(config, topic, ctx, state, page, scanned, pending) do
+    case refill_all(config, topic, ctx, state, scanned) do
+      {:ok, state2, added, _matched, halted} ->
         scanned2 = scanned + added
-        report_progress(ctx, scanned2, matched)
+        report_progress(ctx, scanned2, Enum.reverse(pending))
         continue_or_halt(config, topic, ctx, state2, page, scanned2, halted)
 
       {:error, _} = error ->
@@ -255,16 +259,16 @@ defmodule KafkaManager.Kafka.TopicReader do
   end
 
   defp continue_or_halt(config, topic, ctx, state, page, scanned, nil) do
-    step(config, topic, ctx, state, page, scanned)
+    step(config, topic, ctx, state, page, scanned, [])
   end
 
-  defp report_progress(%{on_progress: nil}, _scanned, _matched), do: :ok
+  defp report_progress(%{on_progress: nil}, _scanned, _emitted), do: :ok
 
-  defp report_progress(%{on_progress: on_progress, direction: direction}, scanned, matched) do
+  defp report_progress(%{on_progress: on_progress, direction: direction}, scanned, emitted) do
     # Messages are included for backward reads only: a forward read's
     # emission order is oldest first, so its progress is reported without
     # rows (docs/PLAN.md 2.4, "Refill" step 4).
-    messages = if direction == :backward, do: matched, else: []
+    messages = if direction == :backward, do: emitted, else: []
     on_progress.(%{scanned: scanned, messages: messages})
   end
 
@@ -274,13 +278,30 @@ defmodule KafkaManager.Kafka.TopicReader do
     end)
   end
 
-  defp ready_to_emit?(state) do
+  @doc false
+  @spec merge_key(Message.t()) :: {integer(), non_neg_integer(), integer()}
+  def merge_key(%{partition: p, offset: o, timestamp: ts}) do
+    {DateTime.to_unix(ts, :millisecond), p, o}
+  end
+
+  # Every non-exhausted scoped partition must hold a buffered message before
+  # anything is emitted, which is what makes `pop_best/2`'s head comparison
+  # exact (docs/PLAN.md 2.4, "Emit").
+  @doc false
+  @spec ready_to_emit?(map()) :: boolean()
+  def ready_to_emit?(state) do
     Enum.all?(state, fn {_p, %{exhausted?: exhausted?, buffer: buffer}} ->
       exhausted? or buffer != []
     end)
   end
 
-  defp pop_best(state, direction) do
+  # The tie order (docs/PLAN.md 2.4, "Merge order"): the largest
+  # `{timestamp_ms, partition, offset}` first for a backward read, the
+  # smallest first for a forward read, so a timestamp tie breaks by
+  # partition, then offset, both descending when read newest first.
+  @doc false
+  @spec pop_best(map(), :backward | :forward) :: {Message.t(), map()}
+  def pop_best(state, direction) do
     candidates = for {p, %{buffer: [head | _]}} <- state, do: {p, head}
 
     {p, msg} =
@@ -292,34 +313,50 @@ defmodule KafkaManager.Kafka.TopicReader do
     {msg, update_in(state[p].buffer, &tl/1)}
   end
 
-  defp merge_key(%{partition: p, offset: o, timestamp: ts}) do
-    {DateTime.to_unix(ts, :millisecond), p, o}
-  end
-
   # Refills every partition that needs it for one round, stopping at the
   # first error or the first backtracking-limit halt: the merge state must
-  # not silently drop the partitions after it (docs/PLAN.md 2.5).
-  defp refill_all(config, topic, ctx, state) do
+  # not silently drop the partitions after it (docs/PLAN.md 2.5). The scan
+  # budget (`max_scanned`) is a total across every partition, not per
+  # partition: `scanned` is the count already spent before this round, and
+  # each partition's chunk is clamped to what is left of it, stopping the
+  # round early once the budget runs out rather than reading a full chunk
+  # from every partition regardless of `scanned`.
+  defp refill_all(config, topic, ctx, state, scanned) do
     needing = for {p, %{buffer: [], exhausted?: false}} <- state, do: p
 
     Enum.reduce_while(needing, {:ok, state, 0, [], nil}, fn p,
                                                             {:ok, acc_state, added, matched, nil} ->
-      case refill_partition(config, topic, p, ctx, acc_state) do
-        {:ok, new_state, count, new_matched, nil} ->
-          {:cont, {:ok, new_state, added + count, matched ++ new_matched, nil}}
-
-        {:ok, new_state, count, new_matched, halted} ->
-          {:halt, {:ok, new_state, added + count, matched ++ new_matched, halted}}
-
-        {:error, _} = error ->
-          {:halt, error}
-      end
+      refill_step(config, topic, ctx, p, acc_state, added, matched, scanned)
     end)
   end
 
-  defp refill_partition(config, topic, p, ctx, state) do
+  defp refill_step(config, topic, ctx, p, acc_state, added, matched, scanned) do
+    case remaining_budget(ctx, scanned + added) do
+      0 -> {:halt, {:ok, acc_state, added, matched, nil}}
+      remaining -> refill_one(config, topic, p, ctx, acc_state, remaining, added, matched)
+    end
+  end
+
+  defp refill_one(config, topic, p, ctx, acc_state, remaining, added, matched) do
+    case refill_partition(config, topic, p, ctx, acc_state, remaining) do
+      {:ok, new_state, count, new_matched, nil} ->
+        {:cont, {:ok, new_state, added + count, matched ++ new_matched, nil}}
+
+      {:ok, new_state, count, new_matched, halted} ->
+        {:halt, {:ok, new_state, added + count, matched ++ new_matched, halted}}
+
+      {:error, _} = error ->
+        {:halt, error}
+    end
+  end
+
+  defp remaining_budget(%{max_scanned: :infinity}, _scanned), do: :infinity
+  defp remaining_budget(%{max_scanned: max_scanned}, scanned), do: max(max_scanned - scanned, 0)
+
+  defp refill_partition(config, topic, p, ctx, state, remaining) do
     %{next: next} = Map.fetch!(state, p)
-    {lo, hi} = chunk_bounds(next, ctx.floor[p], ctx.ceiling[p], ctx.direction, ctx.chunk)
+    chunk = clamp_chunk(ctx.chunk, remaining)
+    {lo, hi} = chunk_bounds(next, ctx.floor[p], ctx.ceiling[p], ctx.direction, chunk)
 
     case Messages.read_range(config, topic, p, lo, hi) do
       {:ok, messages} ->
@@ -357,6 +394,9 @@ defmodule KafkaManager.Kafka.TopicReader do
       {acc, scanned} -> {Enum.reverse(acc), scanned, nil}
     end
   end
+
+  defp clamp_chunk(chunk, :infinity), do: chunk
+  defp clamp_chunk(chunk, remaining), do: min(chunk, remaining)
 
   defp chunk_bounds(next, floor, _ceiling, :backward, chunk), do: {max(floor, next - chunk), next}
 

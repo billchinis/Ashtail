@@ -196,7 +196,10 @@ defmodule KafkaManagerWeb.MessageComponents do
 
     ~H"""
     <div class="card bg-base-100 shadow-sm overflow-hidden">
-      <div :if={@running} class="progress progress-primary h-0.5 w-full rounded-none" />
+      <progress
+        :if={@running}
+        class="progress progress-primary h-0.5 w-full rounded-none"
+      ></progress>
       <ul id={@id} phx-update="stream" class="list">
         <li
           id={@id <> "-empty"}

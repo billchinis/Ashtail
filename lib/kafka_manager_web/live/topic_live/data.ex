@@ -217,8 +217,22 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   defp load(socket, topic, page_size, cursor, filter_params, scan_id) do
     case Kafka.parse_filter(filter_params) do
       {:error, errors} ->
+        # A rejected filter must not tail at all (docs/PLAN.md 4.10): the
+        # form still shows the rejected filter, so tailing on with no filter
+        # would silently show every message. `older`/`newer` are reset too,
+        # since no read happened and the previous filter's cursors no
+        # longer apply (docs/PLAN.md 4.9).
         socket
-        |> assign(filter: Filter.none(), filter_errors: errors, scan_state: :complete, scanned: 0)
+        |> assign(
+          filter: Filter.none(),
+          filter_errors: errors,
+          scan_state: :complete,
+          scanned: 0,
+          older: nil,
+          newer: nil,
+          page_high: nil
+        )
+        |> stop_tail()
         |> stream(:messages, [], reset: true)
 
       {:ok, filter} ->
@@ -236,7 +250,20 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     live_view = self()
 
     socket
-    |> assign(scan_state: :running, scanned: 0, message_index: %{})
+    # `older`/`newer` are reset so the previous read's pager links (possibly
+    # from a different filter) do not stay on screen while this scan runs
+    # (docs/PLAN.md 4.9). `page_high` is reset so a tail switched on while
+    # this scan is still running cannot arm itself from a stale, previous
+    # filter's high-water mark (docs/PLAN.md 4.10) — `toggle_tail/2` only
+    # trusts `page_high` once it reflects this read.
+    |> assign(
+      scan_state: :running,
+      scanned: 0,
+      message_index: %{},
+      older: nil,
+      newer: nil,
+      page_high: nil
+    )
     |> stream(:messages, [], reset: true)
     |> start_async({:scan, scan_id}, fn ->
       Kafka.read_topic(topic,
@@ -309,25 +336,36 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   # non-`nil` cursor in the freshly parsed URL stops it before the new page
   # loads.
   defp maybe_stop_tail(socket, nil), do: socket
+  defp maybe_stop_tail(socket, _cursor), do: stop_tail(socket)
 
-  defp maybe_stop_tail(%{assigns: %{tailing?: true}} = socket, _cursor) do
+  # Cancels the timer and turns tailing off, if it is on. Idempotent, so
+  # every caller (paging away, a rejected filter, the toggle button) can
+  # reach for it without first checking `tailing?` itself.
+  defp stop_tail(%{assigns: %{tailing?: true}} = socket) do
     cancel_tail(socket.assigns.tail_ref)
     assign(socket, tailing?: false, tail_ref: nil, tail_from: nil)
   end
 
-  defp maybe_stop_tail(socket, _cursor), do: socket
+  defp stop_tail(socket), do: socket
 
   # PLAN 4.10: turning tailing on returns to page 1. On page 1 with a
   # completed read, the tail is gap-free from the start: `tail_from` is set
   # to that read's `high` map straight away. From a cursor page, or while
   # page 1's own scan is still running, `tail_from` stays `nil` and
   # `maybe_arm_tail/2` sets it once a page-1 read completes.
-  defp toggle_tail(socket, false) do
-    cancel_tail(socket.assigns.tail_ref)
-    assign(socket, tailing?: false, tail_ref: nil, tail_from: nil)
-  end
+  defp toggle_tail(socket, false), do: stop_tail(socket)
 
-  defp toggle_tail(%{assigns: %{cursor: nil, page_high: page_high}} = socket, true)
+  # `scan_state: :complete` is required, not just a non-`nil` `page_high`
+  # (docs/PLAN.md 4.10): `start_scan/6` clears `page_high` before a scan
+  # runs, but the explicit guard also protects against a future read path
+  # that leaves a stale `page_high` in place while `scan_state` is
+  # `:running`. Without it, switching the tail on mid-scan could arm
+  # `tail_from` from a previous filter's completed page-1 read instead of
+  # waiting for the running scan's own result.
+  defp toggle_tail(
+         %{assigns: %{cursor: nil, page_high: page_high, scan_state: :complete}} = socket,
+         true
+       )
        when not is_nil(page_high) do
     tail_ref = if connected?(socket), do: schedule_tail(), else: nil
     assign(socket, tailing?: true, tail_from: page_high, tail_ref: tail_ref)
