@@ -71,7 +71,18 @@ defmodule KafkaManagerWeb.TopicDataJsonConditionsTest do
     refute html =~ "data-filter-error"
     assert keys(html) == [pay_key(37)]
 
-    remove_row(view, 0)
+    html = remove_row(view, 0)
+
+    # Read straight off the rendered HTML, before any re-apply or
+    # resubmission: the surviving rows must still carry their own typed
+    # path, operator and value, and the removed row must be gone entirely.
+    assert condition_ids(html) == [1, 2]
+    assert json_field(html, 1, "path") == "note"
+    assert json_op(html, 1) == "exists"
+    assert json_field(html, 2, "path") == "items[1].qty"
+    assert json_op(html, 2) == "equals"
+    assert json_field(html, 2, "value") == "3"
+    refute html =~ ~s(data-json-condition="0")
 
     {html, _path} =
       apply_rows(view, %{}, %{

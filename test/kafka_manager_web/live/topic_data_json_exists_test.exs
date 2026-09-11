@@ -28,10 +28,12 @@ defmodule KafkaManagerWeb.TopicDataJsonExistsTest do
   test "the key filter, then amount exists, then note exists on the edited row", %{conn: conn} do
     {:ok, view, html} = live(conn, ~p"/topics/payments")
 
-    add_index = binary_index(html, "data-add-json-condition")
-    value_index = binary_index(html, ~s(name="filter[value]"))
-    header_index = binary_index(html, ~s(name="filter[header]"))
-    assert value_index < add_index and add_index < header_index
+    value_fieldset =
+      html
+      |> LazyHTML.from_document()
+      |> LazyHTML.query(~s{fieldset:has(input[name="filter[value]"])})
+
+    assert LazyHTML.query(value_fieldset, "[data-add-json-condition]") |> Enum.count() == 1
 
     html = apply_filter(view, %{"key" => "0$", "key_mode" => "regex"})
     assert scan_state(html) == "complete"
@@ -74,11 +76,6 @@ defmodule KafkaManagerWeb.TopicDataJsonExistsTest do
   defp mod8_5, do: Enum.filter(120..1//-1, &(rem(&1, 8) == 5))
 
   defp pay_key(n), do: "pay-" <> String.pad_leading(Integer.to_string(n), 3, "0")
-
-  defp binary_index(html, needle) do
-    {index, _length} = :binary.match(html, needle)
-    index
-  end
 
   defp apply_filter(view, overrides, opts \\ []) do
     params = Map.merge(@default_filter_params, overrides)
