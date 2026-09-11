@@ -12,8 +12,14 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   blocks the page (docs/PLAN.md 4.9, P8). AC-20 adds the time range: `from`
   and `to` are query params like every other filter field, and the form's
   Time range preset select is UI-only — it fills `from`/`to` on change but
-  never patches or reads on its own (docs/PLAN.md 4.9). Tailing (AC-21) is
-  not wired yet.
+  never patches or reads on its own (docs/PLAN.md 4.9). AC-21 extends the
+  per-partition browser's tail (docs/PLAN.md 4.5) across every scoped
+  partition (docs/PLAN.md 4.10): a LiveView-owned timer reads forward from
+  `tail_from` (a per-partition offset map) through the same
+  `Kafka.read_topic/2`, so the active filter applies to tailed rows exactly
+  as it does to a page or a scan. New rows are prepended and the stream is
+  trimmed to `page_size`. Turning tailing on returns to page 1, and the
+  tail starts exactly where that page ended, once it has loaded.
   """
 
   use KafkaManagerWeb, :live_view
@@ -23,6 +29,8 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   alias KafkaManagerWeb.TopicLive.DataParams
 
   @default_page_size 50
+  @tail_interval_ms 1_000
+  @tail_limit 500
 
   @impl true
   def mount(_params, _session, socket) do
@@ -44,7 +52,10 @@ defmodule KafkaManagerWeb.TopicLive.Data do
         scan_id: nil,
         scan_state: :complete,
         scanned: 0,
-        message_index: %{}
+        message_index: %{},
+        tailing?: false,
+        tail_from: nil,
+        tail_ref: nil
       )
       |> stream_configure(:messages,
         dom_id: &("message-" <> to_string(&1.partition) <> "-" <> to_string(&1.offset))
@@ -72,6 +83,7 @@ defmodule KafkaManagerWeb.TopicLive.Data do
         filter_form: to_form(filter_params, as: :filter),
         scan_id: scan_id
       )
+      |> maybe_stop_tail(cursor)
       |> fetch_topic(topic)
       |> load(topic, page_size, cursor, filter_params, scan_id)
 
@@ -121,7 +133,19 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     {:noreply, toggle_expanded(socket, partition, offset, false)}
   end
 
+  def handle_event("toggle_tail", _params, socket) do
+    {:noreply, toggle_tail(socket, not socket.assigns.tailing?)}
+  end
+
   @impl true
+  def handle_info(:tail_tick, socket) do
+    if socket.assigns.tailing? do
+      {:noreply, tail_tick(socket)}
+    else
+      {:noreply, socket}
+    end
+  end
+
   def handle_info(
         {:scan_progress, scan_id, %{scanned: scanned, messages: rows}},
         %{assigns: %{scan_id: scan_id}} = socket
@@ -242,6 +266,7 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   defp apply_page(socket, page) do
     index = Map.new(page.messages, &{{&1.partition, &1.offset}, &1})
     rows = Enum.map(page.messages, &to_row(&1, false))
+    high = page_high(socket, page)
 
     socket
     |> assign(
@@ -250,9 +275,10 @@ defmodule KafkaManagerWeb.TopicLive.Data do
       scanned: page.scanned,
       message_index: index,
       scan_state: :complete,
-      page_high: page_high(socket, page)
+      page_high: high
     )
     |> assign_halted_error(page.halted)
+    |> maybe_arm_tail(high)
     |> stream(:messages, rows, reset: true)
   end
 
@@ -261,6 +287,136 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   end
 
   defp page_high(%{assigns: %{page_high: page_high}}, _page), do: page_high
+
+  # Arms the tail the moment a page-1 read completes while `tailing?` is
+  # true and `tail_from` is still `nil` (docs/PLAN.md 4.10): that is either
+  # the read that just completed after tailing was switched on, or the
+  # page-1 reload `toggle_tail/2` forced when tailing was switched on from
+  # a cursor page. Once armed, later page-1 reads (a new filter, a new
+  # scan) leave `tail_from` alone.
+  defp maybe_arm_tail(socket, high) do
+    %{tailing?: tailing?, cursor: cursor, tail_from: tail_from} = socket.assigns
+
+    if tailing? and cursor == nil and is_nil(tail_from) do
+      tail_ref = if connected?(socket), do: schedule_tail(), else: nil
+      assign(socket, tail_from: high, tail_ref: tail_ref)
+    else
+      socket
+    end
+  end
+
+  # Paging away from page 1 ends the tail (docs/PLAN.md 4.9, 4.10): a
+  # non-`nil` cursor in the freshly parsed URL stops it before the new page
+  # loads.
+  defp maybe_stop_tail(socket, nil), do: socket
+
+  defp maybe_stop_tail(%{assigns: %{tailing?: true}} = socket, _cursor) do
+    cancel_tail(socket.assigns.tail_ref)
+    assign(socket, tailing?: false, tail_ref: nil, tail_from: nil)
+  end
+
+  defp maybe_stop_tail(socket, _cursor), do: socket
+
+  # PLAN 4.10: turning tailing on returns to page 1. On page 1 with a
+  # completed read, the tail is gap-free from the start: `tail_from` is set
+  # to that read's `high` map straight away. From a cursor page, or while
+  # page 1's own scan is still running, `tail_from` stays `nil` and
+  # `maybe_arm_tail/2` sets it once a page-1 read completes.
+  defp toggle_tail(socket, false) do
+    cancel_tail(socket.assigns.tail_ref)
+    assign(socket, tailing?: false, tail_ref: nil, tail_from: nil)
+  end
+
+  defp toggle_tail(%{assigns: %{cursor: nil, page_high: page_high}} = socket, true)
+       when not is_nil(page_high) do
+    tail_ref = if connected?(socket), do: schedule_tail(), else: nil
+    assign(socket, tailing?: true, tail_from: page_high, tail_ref: tail_ref)
+  end
+
+  defp toggle_tail(%{assigns: %{cursor: cursor}} = socket, true) when not is_nil(cursor) do
+    socket
+    |> assign(tailing?: true, tail_from: nil, tail_ref: nil)
+    |> push_patch(
+      to:
+        DataParams.path(
+          socket.assigns.topic_name,
+          socket.assigns.filter_params,
+          socket.assigns.page_size
+        )
+    )
+  end
+
+  defp toggle_tail(socket, true) do
+    assign(socket, tailing?: true, tail_from: nil, tail_ref: nil)
+  end
+
+  defp schedule_tail, do: Process.send_after(self(), :tail_tick, @tail_interval_ms)
+
+  defp cancel_tail(nil), do: :ok
+  defp cancel_tail(ref), do: Process.cancel_timer(ref)
+
+  # While `tail_from` is not yet set (waiting for page 1) or a scan is
+  # running, reschedule and do nothing (docs/PLAN.md 4.10).
+  defp tail_tick(%{assigns: %{tail_from: nil}} = socket) do
+    assign(socket, tail_ref: schedule_tail())
+  end
+
+  defp tail_tick(%{assigns: %{scan_state: :running}} = socket) do
+    assign(socket, tail_ref: schedule_tail())
+  end
+
+  defp tail_tick(socket) do
+    %{topic_name: topic, filter: filter, tail_from: tail_from} = socket.assigns
+
+    case Kafka.read_topic(topic,
+           cursor: {:after, tail_from},
+           filter: filter,
+           page_size: @tail_limit,
+           max_scanned: @tail_limit
+         ) do
+      {:ok, page} ->
+        socket
+        |> assign(broker_error: nil)
+        |> insert_tail_rows(page.messages)
+        |> assign(tail_from: range_high(page.range), tail_ref: schedule_tail())
+
+      {:error, %BrokerError{} = error} ->
+        assign(socket, broker_error: error, tailing?: false, tail_ref: nil)
+    end
+  end
+
+  defp range_high(range), do: Map.new(range, fn {p, {_low, high}} -> {p, high} end)
+
+  # Newest first ends on top: inserting the oldest of this tick's rows
+  # first, each at the head, leaves the newest sitting above it last
+  # (docs/PLAN.md 4.10). `:message_index` is trimmed to the same bounded
+  # window (P4) so the expander keeps working for exactly what is on
+  # screen.
+  defp insert_tail_rows(socket, messages) do
+    page_size = socket.assigns.page_size
+    additions = Map.new(messages, &{{&1.partition, &1.offset}, &1})
+
+    socket =
+      update(socket, :message_index, &trim_message_index(Map.merge(&1, additions), page_size))
+
+    messages
+    |> Enum.reverse()
+    |> Enum.reduce(socket, fn message, acc ->
+      stream_insert(acc, :messages, to_row(message, false), at: 0, limit: page_size)
+    end)
+  end
+
+  defp trim_message_index(index, limit) when map_size(index) <= limit, do: index
+
+  defp trim_message_index(index, limit) do
+    index
+    |> Enum.sort_by(fn {_key, message} -> merge_key(message) end, :desc)
+    |> Enum.take(limit)
+    |> Map.new()
+  end
+
+  defp merge_key(%{timestamp: timestamp, partition: partition, offset: offset}),
+    do: {DateTime.to_unix(timestamp, :millisecond), partition, offset}
 
   defp assign_halted_error(socket, nil), do: socket
 
