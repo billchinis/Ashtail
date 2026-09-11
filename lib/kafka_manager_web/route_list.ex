@@ -6,7 +6,11 @@ defmodule KafkaManagerWeb.RouteList do
 
   `@params` maps path parameter names to values that exist in the seed data
   (priv/kafka/seed.sh). A route with a parameter missing from this map fails
-  loudly: extend the map, do not skip the route.
+  loudly: extend the map, do not skip the route. No route introduces a new
+  path parameter (JSON field conditions, AC-22..AC-24, are query parameters
+  on the existing `/topics/:topic` route, docs/PLAN.md 4.11), so `@params`
+  covers every route by itself; `@extra_routes` below reaches seed content
+  `@params` cannot.
   """
 
   @params %{
@@ -27,9 +31,13 @@ defmodule KafkaManagerWeb.RouteList do
   # 2 KB values, `notifications`' null keys and interleaved merged Data view,
   # the empty Data state, a group with real lag, a `Stable` group on the
   # Consumer Groups sub-menu, `payments`' non-default `retention.ms` config
-  # override, and a filtered Data view (a whole-topic scan, AC-19). Kept
-  # here, alongside `@params`, so `mix screenshots` and the smoke test never
-  # have to invent their own extra paths.
+  # override, a filtered Data view (a whole-topic scan, AC-19), the Data view
+  # over `payments`' mixed JSON/plain-text/truncated/null values (AC-22), and
+  # a Data URL with two JSON field conditions (AC-22..AC-24) — that last path
+  # is `DataParams.path/4`'s own output for those rows (`iex -S mix`), so it
+  # is exactly the URL the app itself builds. Kept here, alongside `@params`,
+  # so `mix screenshots` and the smoke test never have to invent their own
+  # extra paths.
   @extra_routes [
     %{path: "/topics/#{URI.encode(@audit_topic)}", live?: true},
     %{path: "/topics/#{URI.encode(@audit_topic)}/partitions/0", live?: true},
@@ -39,7 +47,13 @@ defmodule KafkaManagerWeb.RouteList do
     %{path: "/topics/empty-topic", live?: true},
     %{path: "/groups/lagging-analytics", live?: true},
     %{path: "/topics/payments/configs", live?: true},
-    %{path: "/topics/orders?key=%5Eorder-0001%24&key_mode=regex", live?: true}
+    %{path: "/topics/orders?key=%5Eorder-0001%24&key_mode=regex", live?: true},
+    %{path: "/topics/payments", live?: true},
+    %{
+      path:
+        "/topics/payments?json[0][path]=note&json[0][op]=exists&json[1][path]=items%5B1%5D.qty&json[1][op]=equals&json[1][value]=3",
+      live?: true
+    }
   ]
 
   @skip_prefixes ["/dev"]
@@ -68,8 +82,10 @@ defmodule KafkaManagerWeb.RouteList do
   Extra seed-backed paths (already-substituted, literal) covering seed
   content `@params` cannot reach because it only ever supplies one value per
   path parameter: the audit topic's long keys and 2 KB values, the
-  `notifications` topic's null keys, and the `lagging-analytics` group's
-  real per-partition lag.
+  `notifications` topic's null keys, the `lagging-analytics` group's real
+  per-partition lag, a filtered Data view (AC-19), and (2026-09-12, AC-22)
+  the Data view over `payments`' mixed JSON/plain-text/truncated/null values
+  plus one Data URL carrying two JSON field conditions.
   """
   def extra_routes, do: @extra_routes
 

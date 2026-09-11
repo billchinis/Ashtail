@@ -1,24 +1,31 @@
 defmodule KafkaManager.Kafka.Filter do
   @moduledoc """
-  A Data sub-menu filter: one condition each for key, value and header, plus
-  an optional partition (docs/PLAN.md 2.5). Pure — no broker access, no
-  config. `parse/1` compiles every regular expression once; the compiled
-  filter is then passed unchanged into the scan task's closure and to every
-  tail tick, never recompiled per message.
+  A Data sub-menu filter: one condition each for key, value and header, an
+  optional partition, and an ordered list of JSON field conditions
+  (docs/PLAN.md 2.5, 2.5.1). Pure — no broker access, no config. `parse/1`
+  compiles every regular expression once; the compiled filter is then
+  passed unchanged into the scan task's closure and to every tail tick,
+  never recompiled per message.
 
   `from`/`to` (AC-20) are the inclusive UTC time range, to the millisecond.
   They narrow the read window through `ListOffsets` in `TopicReader`
   (docs/PLAN.md 2.4), but `match/2` also re-checks them against every
   message's own timestamp: a bound only limits where reading starts, not
   which messages qualify.
+
+  JSON field conditions (2026-09-12, AC-22) test a path into the message
+  value, decoded as JSON at most once per message and only when at least
+  one condition is present. `KafkaManager.Kafka.JsonPath` owns the path
+  grammar and lookup; this module owns parsing the row (operator, value,
+  compiling `contains`/`regex`) and evaluating it against the decoded term.
   """
 
-  alias KafkaManager.Kafka.Message
+  alias KafkaManager.Kafka.{JsonPath, Message}
 
   @match_limit 100_000
   @match_limit_recursion 10_000
 
-  defstruct key: nil, value: nil, header: nil, partition: nil, from: nil, to: nil
+  defstruct key: nil, value: nil, header: nil, partition: nil, from: nil, to: nil, json: []
 
   @typedoc "Plain text or regular expression, compiled once."
   @type pattern :: %{mode: :text | :regex, source: String.t(), regex: Regex.t()}
@@ -26,13 +33,25 @@ defmodule KafkaManager.Kafka.Filter do
   @typedoc "A header name, matched exactly, plus an optional value pattern."
   @type header_filter :: %{name: String.t(), value: nil | pattern()}
 
+  @typedoc "One JSON field condition, in row order (docs/PLAN.md 2.5.1)."
+  @type json_condition :: %{
+          index: non_neg_integer(),
+          source: String.t(),
+          path: [String.t() | non_neg_integer()],
+          op: :equals | :contains | :regex | :exists,
+          value: nil | String.t(),
+          number: nil | number(),
+          regex: nil | Regex.t()
+        }
+
   @type t :: %__MODULE__{
           key: nil | pattern(),
           value: nil | pattern(),
           header: nil | header_filter(),
           partition: nil | non_neg_integer(),
           from: nil | DateTime.t(),
-          to: nil | DateTime.t()
+          to: nil | DateTime.t(),
+          json: [json_condition()]
         }
 
   @doc "The empty filter: every field inactive, every message matches."
@@ -47,7 +66,8 @@ defmodule KafkaManager.Kafka.Filter do
         header: nil,
         partition: nil,
         from: nil,
-        to: nil
+        to: nil,
+        json: []
       }),
       do: false
 
@@ -57,7 +77,8 @@ defmodule KafkaManager.Kafka.Filter do
   Parses the Data view's filter query params into a `%Filter{}`. Every
   regular expression is compiled here, once per search. Returns every field
   error found, keyed by `"key"`, `"value"`, `"header"`, `"partition"`,
-  `"from"` or `"to"` (docs/PLAN.md 2.5).
+  `"from"`, `"to"` or `"json-<i>"` (docs/PLAN.md 2.5, 2.5.1), `i` the
+  0-based position of a JSON condition row in `params["json"]`.
   """
   @spec parse(map()) :: {:ok, t()} | {:error, %{String.t() => String.t()}}
   def parse(params) when is_map(params) do
@@ -77,6 +98,9 @@ defmodule KafkaManager.Kafka.Filter do
       end)
       |> maybe_range_error(fields)
 
+    {json_conditions, json_errors} = parse_json_conditions(params)
+    errors = Map.merge(errors, json_errors)
+
     if errors == %{} do
       {:ok,
        %__MODULE__{
@@ -85,7 +109,8 @@ defmodule KafkaManager.Kafka.Filter do
          header: unwrap(fields.header),
          partition: unwrap(fields.partition),
          from: unwrap(fields.from),
-         to: unwrap(fields.to)
+         to: unwrap(fields.to),
+         json: json_conditions
        }}
     else
       {:error, errors}
@@ -108,19 +133,203 @@ defmodule KafkaManager.Kafka.Filter do
 
   @doc """
   Matches one message against `filter`. Every active field must match
-  (AND). Evaluates the cheapest checks first: time, key, header, then value
-  (docs/PLAN.md 2.5). A regular expression that hits its backtracking limit
-  stops evaluation and returns `{:match_limit, field}` immediately, without
-  checking the remaining fields.
+  (AND). Evaluates the cheapest checks first: time, key, header, value, then
+  JSON conditions last, the most expensive check (docs/PLAN.md 2.5, 2.5.1).
+  A regular expression that hits its backtracking limit stops evaluation and
+  returns `{:match_limit, field}` immediately, without checking the
+  remaining fields or conditions.
   """
   @spec match(t(), Message.t()) :: :match | :nomatch | {:match_limit, String.t()}
   def match(%__MODULE__{} = filter, %Message{} = message) do
     with :match <- match_time(filter.from, filter.to, message.timestamp),
          :match <- match_key(filter.key, message.key),
-         :match <- match_header(filter.header, message.headers) do
-      match_value(filter.value, message.value)
+         :match <- match_header(filter.header, message.headers),
+         :match <- match_value(filter.value, message.value) do
+      match_json(filter.json, message.value)
     end
   end
+
+  # --- JSON field conditions (docs/PLAN.md 2.5.1, AC-22) ---------------
+
+  # `params["json"]`: a list of string-keyed row maps. Anything else there
+  # (missing, a map, a string) reads as no rows, and a non-map element is
+  # skipped like a blank row — `DataParams` already guarantees a clean list,
+  # but `Filter` repeats the rule so it is safe called on its own.
+  defp parse_json_conditions(params) do
+    rows =
+      case get(params, "json") do
+        rows when is_list(rows) -> rows
+        _other -> []
+      end
+
+    {conditions, errors} =
+      rows
+      |> Enum.with_index()
+      |> Enum.reduce({[], %{}}, fn {row, index}, {conditions, errors} ->
+        case parse_json_row(row, index) do
+          :skip -> {conditions, errors}
+          {:ok, condition} -> {[condition | conditions], errors}
+          {:error, message} -> {conditions, Map.put(errors, "json-#{index}", message)}
+        end
+      end)
+
+    {Enum.reverse(conditions), errors}
+  end
+
+  defp parse_json_row(row, _index) when not is_map(row), do: :skip
+
+  defp parse_json_row(row, index) do
+    path_source = row |> Map.get("path") |> trimmed()
+
+    if path_source == "" do
+      :skip
+    else
+      with {:ok, op} <- parse_json_op(Map.get(row, "op")),
+           {:ok, path} <- parse_json_path(path_source),
+           {:ok, value} <- parse_json_value(op, Map.get(row, "value")),
+           {:ok, compiled} <- compile_json_op(op, value) do
+        {:ok,
+         %{
+           index: index,
+           source: path_source,
+           path: path,
+           op: op,
+           value: if(op == :exists, do: nil, else: value),
+           number: Map.get(compiled, :number),
+           regex: Map.get(compiled, :regex)
+         }}
+      end
+    end
+  end
+
+  defp trimmed(value) when is_binary(value), do: String.trim(value)
+  defp trimmed(_value), do: ""
+
+  defp parse_json_op(nil), do: {:ok, :equals}
+  defp parse_json_op(""), do: {:ok, :equals}
+  defp parse_json_op("equals"), do: {:ok, :equals}
+  defp parse_json_op("contains"), do: {:ok, :contains}
+  defp parse_json_op("regex"), do: {:ok, :regex}
+  defp parse_json_op("exists"), do: {:ok, :exists}
+
+  defp parse_json_op(_other),
+    do: {:error, "Choose an operator: equals, contains, regex or exists."}
+
+  defp parse_json_path(source) do
+    case JsonPath.parse(source) do
+      {:ok, path} ->
+        {:ok, path}
+
+      {:error, reason} ->
+        {:error,
+         "Invalid path: #{reason}. Use keys separated by dots and [n] for array items, " <>
+           "for example customer.id or items[0].sku."}
+    end
+  end
+
+  defp parse_json_value(:exists, _raw), do: {:ok, nil}
+
+  defp parse_json_value(op, raw) do
+    value = if is_binary(raw), do: raw, else: ""
+
+    if value == "" do
+      {:error, "#{op} needs a value."}
+    else
+      {:ok, value}
+    end
+  end
+
+  defp compile_json_op(:exists, _value), do: {:ok, %{}}
+
+  defp compile_json_op(:equals, value) do
+    number =
+      case Jason.decode(value) do
+        {:ok, num} when is_number(num) -> num
+        _other -> nil
+      end
+
+    {:ok, %{number: number}}
+  end
+
+  defp compile_json_op(:contains, value), do: compile_json_regex(value, "text")
+  defp compile_json_op(:regex, value), do: compile_json_regex(value, "regex")
+
+  defp compile_json_regex(value, mode) do
+    case parse_pattern(value, mode) do
+      {:ok, %{regex: regex}} -> {:ok, %{regex: regex}}
+      {:error, _message} = error -> error
+    end
+  end
+
+  defp match_json([], _value), do: :match
+
+  defp match_json(conditions, value) do
+    case decode_json_root(value) do
+      {:ok, term} -> match_json_conditions(conditions, term)
+      :nomatch -> :nomatch
+    end
+  end
+
+  defp match_json_conditions(conditions, term) do
+    Enum.reduce_while(conditions, :match, fn condition, _acc ->
+      case match_json_condition(condition, term) do
+        :match -> {:cont, :match}
+        :nomatch -> {:halt, :nomatch}
+        {:match_limit, _field} = limit -> {:halt, limit}
+      end
+    end)
+  end
+
+  # A path always needs an object or an array at the root. Checking the
+  # first non-whitespace byte first means plain text, empty and null values
+  # (docs/PLAN.md 1.2) and scalar JSON never pay for a decode.
+  defp decode_json_root(value) do
+    case first_significant_byte(value) do
+      c when c in [?{, ?[] ->
+        case Jason.decode(value) do
+          {:ok, term} -> {:ok, term}
+          {:error, _reason} -> :nomatch
+        end
+
+      _other ->
+        :nomatch
+    end
+  end
+
+  defp first_significant_byte(<<c, rest::binary>>) when c in [?\s, ?\t, ?\r, ?\n],
+    do: first_significant_byte(rest)
+
+  defp first_significant_byte(<<c, _rest::binary>>), do: c
+  defp first_significant_byte(<<>>), do: nil
+
+  defp match_json_condition(%{op: :exists, path: path}, term) do
+    case JsonPath.fetch(term, path) do
+      {:ok, _value} -> :match
+      :error -> :nomatch
+    end
+  end
+
+  defp match_json_condition(%{op: :equals, path: path, value: value, number: number}, term) do
+    case JsonPath.fetch(term, path) do
+      {:ok, fetched} -> if json_equals?(fetched, value, number), do: :match, else: :nomatch
+      :error -> :nomatch
+    end
+  end
+
+  defp match_json_condition(%{op: op, path: path, regex: regex, index: index}, term)
+       when op in [:contains, :regex] do
+    case JsonPath.fetch(term, path) do
+      {:ok, fetched} when is_binary(fetched) -> run_regex(regex, fetched, "json-#{index}")
+      {:ok, _other} -> :nomatch
+      :error -> :nomatch
+    end
+  end
+
+  defp json_equals?(t, value, _number) when is_binary(t), do: t == value
+  defp json_equals?(t, _value, number) when is_number(t) and not is_nil(number), do: t == number
+  defp json_equals?(t, value, _number) when is_boolean(t), do: to_string(t) == value
+  defp json_equals?(nil, value, _number), do: value == "null"
+  defp json_equals?(_t, _value, _number), do: false
 
   defp get(params, key), do: Map.get(params, key)
 

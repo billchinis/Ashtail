@@ -54,7 +54,9 @@ defmodule KafkaManagerWeb.TopicLive.Data do
         message_index: %{},
         tailing?: false,
         tail_from: nil,
-        tail_ref: nil
+        tail_ref: nil,
+        json_rows: [],
+        next_json_id: 0
       )
       |> stream_configure(:messages,
         dom_id: &("message-" <> to_string(&1.partition) <> "-" <> to_string(&1.offset))
@@ -71,6 +73,8 @@ defmodule KafkaManagerWeb.TopicLive.Data do
 
     scan_id = make_ref()
 
+    {json_rows, next_json_id} = rebuild_json_rows(filter_params["json"])
+
     socket =
       socket
       |> maybe_cancel_scan()
@@ -80,6 +84,8 @@ defmodule KafkaManagerWeb.TopicLive.Data do
         cursor: cursor,
         filter_params: filter_params,
         filter_form: to_form(filter_params, as: :filter),
+        json_rows: json_rows,
+        next_json_id: next_json_id,
         scan_id: scan_id
       )
       |> maybe_stop_tail(cursor)
@@ -91,7 +97,23 @@ defmodule KafkaManagerWeb.TopicLive.Data do
 
   @impl true
   def handle_event("filter_change", %{"filter" => filter_params}, socket) do
-    {:noreply, assign(socket, filter_form: to_form(filter_params, as: :filter))}
+    socket =
+      socket
+      |> assign(filter_form: to_form(filter_params, as: :filter))
+      |> sync_json_rows(filter_params["json"])
+
+    {:noreply, socket}
+  end
+
+  def handle_event("add_json_condition", _params, socket) do
+    id = socket.assigns.next_json_id
+    row = %{id: id, path: "", op: "equals", value: ""}
+
+    {:noreply, assign(socket, json_rows: socket.assigns.json_rows ++ [row], next_json_id: id + 1)}
+  end
+
+  def handle_event("remove_json_condition", %{"row" => row}, socket) do
+    {:noreply, remove_json_row(socket, row)}
   end
 
   def handle_event("page_size", %{"page_size" => page_size}, socket) do
@@ -525,9 +547,74 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   defp partition_options(nil), do: []
   defp partition_options(%{partition_count: count}), do: 0..(count - 1)
 
+  # `handle_params/3` is the only source of applied JSON rows (docs/PLAN.md
+  # 4.11): a row's id always equals its position, since `DataParams.parse/1`
+  # already dropped blank-path rows and renumbered the rest. `next_json_id`
+  # continues from there, so ids are never reused across an apply.
+  defp rebuild_json_rows(json_conditions) do
+    rows =
+      json_conditions
+      |> Enum.with_index()
+      |> Enum.map(fn {row, id} ->
+        %{id: id, path: row["path"], op: row["op"], value: row["value"]}
+      end)
+
+    {rows, length(rows)}
+  end
+
+  # Copies typed `path`/`op`/`value` into the matching row by id, so a
+  # re-render (an added row, scan progress) never reverts what a person is
+  # typing (docs/PLAN.md 4.11). An id the form does not know, or a
+  # non-binary field, is ignored.
+  defp sync_json_rows(socket, json_params) when is_map(json_params) do
+    rows =
+      Enum.map(socket.assigns.json_rows, fn row ->
+        case Map.get(json_params, Integer.to_string(row.id)) do
+          %{} = fields ->
+            %{
+              row
+              | path: string_or(fields["path"], row.path),
+                op: string_or(fields["op"], row.op),
+                value: string_or(fields["value"], row.value)
+            }
+
+          _other ->
+            row
+        end
+      end)
+
+    assign(socket, json_rows: rows)
+  end
+
+  defp sync_json_rows(socket, _json_params), do: socket
+
+  defp string_or(value, _default) when is_binary(value), do: value
+  defp string_or(_value, default), do: default
+
+  # A client-supplied row id (`phx-value-row`) that is not a valid integer,
+  # or matches no row, must not crash the page (the produce form's
+  # `remove_header_row/2` is the model). Zero rows is a valid state, unlike
+  # the produce form's last header row, so there is no length guard here.
+  defp remove_json_row(socket, row) do
+    case Integer.parse(row) do
+      {id, ""} ->
+        assign(socket, json_rows: Enum.reject(socket.assigns.json_rows, &(&1.id == id)))
+
+      _other ->
+        socket
+    end
+  end
+
+  # Counts the applied filters, from `filter_params` (the URL), never the
+  # unapplied form (docs/PLAN.md 4.11). Every JSON row surviving
+  # `DataParams`' normaliser already has a non-blank path, so it always
+  # counts as one filter.
   defp applied_filter_count(filter_params) do
-    ["key", "value", "header", "partition", "from", "to"]
-    |> Enum.map(&Map.get(filter_params, &1))
-    |> Enum.count(&(&1 not in [nil, ""]))
+    scalar_count =
+      ["key", "value", "header", "partition", "from", "to"]
+      |> Enum.map(&Map.get(filter_params, &1))
+      |> Enum.count(&(&1 not in [nil, ""]))
+
+    scalar_count + length(Map.get(filter_params, "json", []))
   end
 end

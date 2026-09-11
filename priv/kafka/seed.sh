@@ -2,8 +2,9 @@
 # Idempotent Kafka fixtures for the local Redpanda container (docker-compose.yml).
 # Safe to run repeatedly: topics are created only if missing, messages are
 # produced only into empty topics, consumer groups only if they do not exist.
-# `orders` and `notifications` are recreated (and only then) if their
-# per-partition layout does not already match the deterministic shape below.
+# `orders`, `notifications` and `payments` are recreated (and only then) if
+# their per-partition layout does not already match the deterministic shape
+# below.
 #
 # Every page must have content, so this covers:
 #   - topics with 1, 2, 3, 6 and 12 partitions, an empty topic, a compacted topic
@@ -152,6 +153,129 @@ produce_lines_to_partition() {
   rpk topic produce "$topic" -p "$partition" -f '%k\t%v\n' "${hargs[@]}" >/dev/null
 }
 
+# payments_content_ok NAME: true only if partition 0's first 10 offsets hold
+# the reshaped content (AC-22): offset 0 is key pay-001 with a JSON value
+# carrying "customer":{"id":"cust-001", and offset 9 is key pay-010 with the
+# plain-text legacy-export value. Distinguishes the reshape from the old
+# key-hash, flat-JSON layout, which both lay out as 3 partitions x 40
+# messages.
+payments_content_ok() {
+  local name="$1" lines line1 line10
+  lines=$(rpk topic consume "$name" -p 0 -n 10 -o start -f '%k\t%v\n' 2>/dev/null)
+  line1=$(printf '%s\n' "$lines" | sed -n '1p')
+  line10=$(printf '%s\n' "$lines" | sed -n '10p')
+  case "$line1" in
+    "pay-001"$'\t'*'"customer":{"id":"cust-001"'*) ;;
+    *) return 1 ;;
+  esac
+  case "$line10" in
+    "pay-010"$'\t'"pay-010 legacy export:"*) ;;
+    *) return 1 ;;
+  esac
+  return 0
+}
+
+# produce_payments_partition PARTITION < lines formatted as "key<TAB>value".
+# Like produce_lines_to_partition, but with -Z (empty values become
+# tombstones, AC-22's 4 null-value rows). Not folded into
+# produce_lines_to_partition itself: orders never produces a null value.
+produce_payments_partition() {
+  local partition="$1"
+  rpk topic produce payments -p "$partition" -Z -f '%k\t%v\n' -H content-type:application/json >/dev/null
+}
+
+# payment_value N: prints one "pay-NNN<TAB>value" line for the reshaped
+# `payments` topic (AC-22, "Seed changes required ... JSON field filter").
+# N divisible by 10 is not JSON: N mod 30 = 10 is plain text, N mod 30 = 20
+# is JSON truncated before its closing brace, N mod 30 = 0 is null (an empty
+# value, made a tombstone by -Z). Every other N is one line of valid nested
+# JSON, with a "note" field inserted before the final brace when N mod 8 = 5.
+payment_value() {
+  local n="$1" key amount method
+  key=$(printf 'pay-%03d' "$n")
+  amount=$(( (n * 13) % 900 + 1 ))
+  method="sepa"
+  [ $((n % 3)) -eq 0 ] && method="card"
+
+  if [ $((n % 10)) -eq 0 ]; then
+    case $(( (n / 10) % 3 )) in
+      1)
+        printf '%s\tpay-%03d legacy export: refunded=true shipping.country=GR note=Gift wrap\n' \
+          "$key" "$n"
+        ;;
+      2)
+        printf '%s\t{"amount":%d.00,"method":"%s","refunded":true,"shipping":{"country":"GR"},"note":"Gift wrap"\n' \
+          "$key" "$amount" "$method"
+        ;;
+      0)
+        printf '%s\t\n' "$key"
+        ;;
+    esac
+    return
+  fi
+
+  local cc="DE" sc="DE" q0 q1 items refunded note_part=""
+  [ $((n % 12)) -eq 0 ] && cc="GR"
+  [ $((n % 11)) -eq 0 ] && sc="GR"
+  q0=$(( (n % 4) + 1 ))
+  q1=$(( (n % 7) + 1 ))
+  items=$(printf '{"sku":"A-%03d","qty":%d}' "$n" "$q0")
+  if [ $((n % 2)) -eq 1 ]; then
+    items="$items,$(printf '{"sku":"B-%03d","qty":%d}' "$n" "$q1")"
+  fi
+  refunded="false"
+  [ $((n % 3)) -eq 1 ] && refunded="true"
+  if [ $((n % 8)) -eq 5 ]; then
+    local note="Ring bell"
+    [ $((n % 16)) -eq 5 ] && note="Gift wrap"
+    note_part=$(printf ',"note":"%s"' "$note")
+  fi
+  printf '%s\t{"amount":%d.00,"method":"%s","customer":{"id":"cust-%03d","country":"%s"},"shipping":{"country":"%s"},"items":[%s],"refunded":%s%s}\n' \
+    "$key" "$amount" "$method" "$n" "$cc" "$sc" "$items" "$refunded" "$note_part"
+}
+
+# verify_payments: fails loudly unless, for each partition p (0, 1, 2),
+# consuming its 40 messages from the start yields keys pay-(40p+1)..
+# pay-(40p+40) in offset order, no value longer than 199 characters, and
+# every timestamp in partition p is strictly lower than every timestamp in
+# partition p + 1 (AC-22..AC-24 need a real cross-partition newest-first
+# order, not an accident of production speed).
+verify_payments() {
+  local p n key ts value expected_key len
+  local prev_max=-1 this_min this_max
+
+  for p in 0 1 2; do
+    this_min="" this_max="" n=0
+    while IFS=$'\t' read -r key ts value; do
+      n=$((n + 1))
+      expected_key=$(printf 'pay-%03d' $((p * 40 + n)))
+      if [ "$key" != "$expected_key" ]; then
+        echo "seed: payments partition $p offset $((n - 1)) has key '$key', expected '$expected_key'" >&2
+        exit 1
+      fi
+      len=${#value}
+      if [ "$len" -gt 199 ]; then
+        echo "seed: payments key $key has a value $len characters long (max 199)" >&2
+        exit 1
+      fi
+      [ -z "$this_min" ] && this_min="$ts"
+      this_max="$ts"
+    done < <(rpk topic consume payments -p "$p" -o start -n 40 -f '%k\t%d\t%v\n' 2>/dev/null)
+
+    if [ "$n" -ne 40 ]; then
+      echo "seed: expected 40 messages in payments partition $p, got $n" >&2
+      exit 1
+    fi
+    if [ "$prev_max" -ge 0 ] && [ "$this_min" -le "$prev_max" ]; then
+      echo "seed: payments partition $p's earliest timestamp is not after partition $((p - 1))'s latest" >&2
+      exit 1
+    fi
+    prev_max="$this_max"
+  done
+
+  echo "payments: verified per-partition keys, max value length, and ascending cross-partition timestamps"
+}
+
 # notifications_partition0_ok NAME: true only if partition 0 holds, at
 # offsets 0..3, values starting "Notification 1:", "Notification 13:",
 # "Notification 25:", "Notification 37:" with channel headers email, email,
@@ -239,7 +363,9 @@ if ensure_deterministic_topic orders 6 100; then
   delete_group_if_exists orders-service
   delete_group_if_exists lagging-analytics
 fi
-ensure_topic payments 3
+if ensure_deterministic_topic payments 3 40 payments_content_ok; then
+  delete_group_if_exists payments-worker
+fi
 ensure_topic_config payments retention.ms=604800000
 if ensure_deterministic_topic notifications 12 4 notifications_partition0_ok; then
   kill_stray_consumer "consume notifications -g live-tailer"
@@ -277,14 +403,16 @@ if [ "$(topic_message_count orders)" -eq 0 ]; then
 fi
 
 if [ "$(topic_message_count payments)" -eq 0 ]; then
-  for i in $(seq 1 120); do
-    method=sepa
-    [ $((i % 3)) -eq 0 ] && method=card
-    printf 'pay-%03d\t{"order":"order-%04d","amount":%d.00,"currency":"EUR","method":"%s"}\n' \
-      "$i" "$i" $((i * 13 % 900 + 1)) "$method"
-  done | produce_lines payments "content-type:application/json"
-  echo "payments: produced 120 messages"
+  for p in 0 1 2; do
+    start=$((p * 40 + 1))
+    end=$((p * 40 + 40))
+    for i in $(seq "$start" "$end"); do
+      payment_value "$i"
+    done | produce_payments_partition "$p"
+  done
+  echo "payments: produced 120 messages (3 partitions x 40, mixed JSON/plain/truncated/null)"
 fi
+verify_payments
 
 if [ "$(topic_message_count notifications)" -eq 0 ]; then
   # Plain-text, null-key values, produced one at a time (own CreateTime each)
