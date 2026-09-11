@@ -80,4 +80,22 @@ defmodule KafkaManager.Kafka do
   @spec topic_groups(String.t()) ::
           {:ok, [KafkaManager.Kafka.Group.t()]} | {:error, KafkaManager.Kafka.BrokerError.t()}
   def topic_groups(name), do: Groups.topic_groups(config(), name)
+
+  @doc """
+  Log directory usage for every partition replica of a topic. See
+  `KafkaManager.Kafka.Topics.topic_log_dirs/2`.
+  """
+  @spec topic_log_dirs(String.t()) ::
+          {:ok,
+           [
+             %{
+               partition: non_neg_integer(),
+               broker: integer(),
+               log_dir: String.t(),
+               size_bytes: non_neg_integer(),
+               offset_lag: integer()
+             }
+           ]}
+          | {:error, KafkaManager.Kafka.BrokerError.t()}
+  def topic_log_dirs(name), do: Topics.topic_log_dirs(config(), name)
 end

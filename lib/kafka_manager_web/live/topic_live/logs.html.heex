@@ -1,0 +1,51 @@
+<Layouts.app flash={@flash} section={:topics}>
+  <.topic_header
+    topic_name={@topic_name}
+    topic={@topic}
+    active={:logs}
+    broker_error={@broker_error}
+  />
+
+  <div class="mt-6 space-y-2">
+    <.table
+      id="log-dirs"
+      rows={@streams.log_dirs}
+      empty="No log directory data returned."
+      row_attrs={
+        fn row ->
+          %{
+            "data-partition" => row.partition,
+            "data-broker" => row.broker,
+            "data-offset-lag" => row.offset_lag
+          }
+        end
+      }
+    >
+      <:col :let={row} label="Partition">
+        <span>{row.partition}</span>
+        <span class="ml-3 text-base-content/60 sm:hidden">Broker {row.broker}</span>
+      </:col>
+      <:col :let={row} label="Broker" class="max-sm:hidden">{row.broker}</:col>
+      <:col
+        :let={row}
+        label="Log directory"
+        class="font-mono text-sm break-all max-sm:w-full"
+      >
+        {row.log_dir}
+      </:col>
+      <:col :let={row} label="Size" numeric>
+        <div data-size-bytes={row.size_bytes}>
+          <div>{human_size(row.size_bytes)}</div>
+          <div class="text-xs font-normal text-base-content/60">{row.size_bytes} bytes</div>
+        </div>
+      </:col>
+      <:col :let={row} label="Offset lag" numeric>
+        <.lag lag={row.offset_lag} size={:small} />
+      </:col>
+    </.table>
+
+    <p class="text-xs text-base-content/60">
+      Size is bytes written, as reported by the broker.
+    </p>
+  </div>
+</Layouts.app>

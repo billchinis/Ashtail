@@ -22,6 +22,7 @@ defmodule KafkaManagerWeb.Router do
     live "/topics/:topic/partitions", TopicLive.Partitions, :partitions
     live "/topics/:topic/groups", TopicLive.Groups, :groups
     live "/topics/:topic/configs", TopicLive.Configs, :configs
+    live "/topics/:topic/logs", TopicLive.Logs, :logs
     live "/topics/:topic/produce", TopicLive.Produce, :produce
     live "/topics/:topic/partitions/:partition", MessageLive.Index, :index
     live "/groups", GroupLive.Index, :index

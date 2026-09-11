@@ -80,6 +80,26 @@ defmodule KafkaManager.Kafka.Topics do
     end
   end
 
+  @doc """
+  Log directory usage for every partition replica of a topic. See
+  `KafkaManager.Kafka.Client.describe_log_dirs/2`.
+  """
+  @spec topic_log_dirs(Config.t(), String.t()) ::
+          {:ok,
+           [
+             %{
+               partition: non_neg_integer(),
+               broker: integer(),
+               log_dir: String.t(),
+               size_bytes: non_neg_integer(),
+               offset_lag: integer()
+             }
+           ]}
+          | {:error, BrokerError.t()}
+  def topic_log_dirs(%Config{} = config, name) when is_binary(name) do
+    Client.describe_log_dirs(config, name)
+  end
+
   defp find_topic(metadata, config, name) do
     case metadata |> topics_from_metadata() |> Enum.find(&(&1.name == name)) do
       nil -> {:error, unknown_topic_error(config, name)}

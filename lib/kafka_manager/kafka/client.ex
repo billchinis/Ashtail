@@ -37,6 +37,7 @@ defmodule KafkaManager.Kafka.Client do
   @describe_configs_vsn 1
   @config_resource_type_topic 2
   @produce_vsn 7
+  @describe_log_dirs_vsn 1
 
   @doc """
   Runs `fun` in a supervised, unlinked task and waits for it, converting a
@@ -257,6 +258,145 @@ defmodule KafkaManager.Kafka.Client do
 
   defp parse_describe_configs_response(%{resources: [%{error_code: error_code}]}) do
     {:error, error_code}
+  end
+
+  @doc """
+  Log directory usage for every partition replica of a topic, via a raw
+  `DescribeLogDirs` request. Not available in `:brod`'s high-level API.
+  Each broker only reports its own disks, so this sends one request per
+  broker that hosts a replica of the topic (from metadata's `replica_nodes`,
+  never per partition). The request/response version is negotiated per
+  connection with `:kpro.get_api_vsn_range/2`, capped at 1: `kpro_schema`
+  only knows how to encode/decode versions 0 and 1. Future replicas
+  (`is_future`) are dropped; the result is sorted by partition, then broker.
+  """
+  @spec describe_log_dirs(Config.t(), String.t()) ::
+          {:ok,
+           [
+             %{
+               partition: non_neg_integer(),
+               broker: integer(),
+               log_dir: String.t(),
+               size_bytes: non_neg_integer(),
+               offset_lag: integer()
+             }
+           ]}
+          | {:error, BrokerError.t()}
+  def describe_log_dirs(%Config{} = config, topic) when is_binary(topic) do
+    run(config, fn -> fetch_log_dirs(config, topic) end)
+  end
+
+  defp fetch_log_dirs(config, topic) do
+    with {:ok, metadata} <- fetch_metadata(config, [topic]),
+         {:ok, partitions} <- log_dir_topic_partitions(config, metadata, topic) do
+      brokers = broker_map(metadata)
+      replica_groups = replica_broker_groups(partitions)
+
+      case log_dirs_from_brokers(config, brokers, replica_groups, topic) do
+        {:ok, rows} -> {:ok, Enum.sort_by(rows, &{&1.partition, &1.broker})}
+        {:error, _} = error -> error
+      end
+    end
+  end
+
+  defp log_dirs_from_brokers(config, brokers, replica_groups, topic) do
+    Enum.reduce_while(replica_groups, {:ok, []}, fn {broker_id, partition_ids}, {:ok, acc} ->
+      case log_dirs_from_broker(config, brokers, broker_id, topic, partition_ids) do
+        {:ok, rows} -> {:cont, {:ok, acc ++ rows}}
+        {:error, _} = error -> {:halt, error}
+      end
+    end)
+  end
+
+  defp log_dir_topic_partitions(config, %{topics: topics}, topic) do
+    case Enum.find(topics, &(&1.name == topic)) do
+      nil -> {:error, unknown_topic_error(config, topic)}
+      %{partitions: partitions} -> {:ok, partitions}
+    end
+  end
+
+  defp unknown_topic_error(config, topic) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :unknown_topic,
+      message: "Topic #{topic} does not exist on this cluster."
+    }
+  end
+
+  defp replica_broker_groups(partitions) do
+    for %{partition_index: id, replica_nodes: replicas} <- partitions,
+        broker_id <- replicas,
+        reduce: %{} do
+      acc -> Map.update(acc, broker_id, [id], &[id | &1])
+    end
+  end
+
+  defp log_dirs_from_broker(config, brokers, broker_id, topic, partition_ids) do
+    endpoint = Map.fetch!(brokers, broker_id)
+
+    case :kpro.connect(endpoint, conn_config(config)) do
+      {:ok, connection} ->
+        try do
+          request = log_dirs_request(connection, topic, Enum.uniq(partition_ids))
+
+          case :kpro.request_sync(connection, request, config.request_timeout) do
+            {:ok, response} ->
+              parse_log_dirs_response(config, kpro_rsp(response, :msg), broker_id, topic)
+
+            {:error, reason} ->
+              {:error, broker_error(config, reason)}
+          end
+        after
+          :kpro.close_connection(connection)
+        end
+
+      {:error, reason} ->
+        {:error, broker_error(config, reason)}
+    end
+  end
+
+  defp log_dirs_request(connection, topic, partition_ids) do
+    fields = [{:topics, [%{topic: topic, partitions: partition_ids}]}]
+    :kpro.make_request(:describe_log_dirs, log_dirs_vsn(connection), fields)
+  end
+
+  defp log_dirs_vsn(connection) do
+    case :kpro.get_api_vsn_range(connection, :describe_log_dirs) do
+      {:ok, {_min_vsn, max_vsn}} -> min(max_vsn, @describe_log_dirs_vsn)
+      {:error, _reason} -> @describe_log_dirs_vsn
+    end
+  end
+
+  defp parse_log_dirs_response(config, %{log_dirs: log_dirs}, broker_id, topic) do
+    Enum.reduce_while(log_dirs, {:ok, []}, fn log_dir, {:ok, acc} ->
+      case log_dir do
+        %{error_code: :no_error} = entry ->
+          {:cont, {:ok, acc ++ log_dir_rows(entry, broker_id, topic)}}
+
+        %{error_code: error_code} ->
+          {:halt, {:error, broker_error(config, error_code)}}
+      end
+    end)
+  end
+
+  defp log_dir_rows(%{log_dir: log_dir, topics: topics}, broker_id, topic) do
+    case Enum.find(topics, &(&1.topic == topic)) do
+      nil ->
+        []
+
+      %{partitions: partitions} ->
+        partitions
+        |> Enum.reject(& &1.is_future)
+        |> Enum.map(fn %{partition: partition, size: size, offset_lag: offset_lag} ->
+          %{
+            partition: partition,
+            broker: broker_id,
+            log_dir: log_dir,
+            size_bytes: size,
+            offset_lag: offset_lag
+          }
+        end)
+    end
   end
 
   @doc """
