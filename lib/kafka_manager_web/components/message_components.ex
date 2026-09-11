@@ -20,7 +20,7 @@ defmodule KafkaManagerWeb.MessageComponents do
     <span
       :if={@key == nil}
       data-null-key
-      class="badge badge-ghost badge-sm italic text-base-content/60"
+      class="badge badge-ghost badge-sm italic text-base-content/60 border border-base-300"
     >&lt;null&gt;</span>
     <span :if={@key != nil} class="break-all">{@key}</span>
     """
@@ -41,12 +41,12 @@ defmodule KafkaManagerWeb.MessageComponents do
     ~H"""
     <span
       :if={not @long?}
-      class="block bg-base-200 rounded-box px-2 py-1 whitespace-pre-wrap break-all"
+      class="block bg-base-200 border border-base-300 rounded-box px-2 py-1 whitespace-pre-wrap break-all"
     >{@value}</span>
     <span
       :if={@long? and @expanded?}
       data-value-full
-      class="block bg-base-200 rounded-box px-2 py-1 whitespace-pre-wrap break-all"
+      class="block bg-base-200 border border-base-300 rounded-box px-2 py-1 whitespace-pre-wrap break-all"
     >{@value}</span>
     <button
       :if={@long? and @expanded?}
@@ -61,7 +61,7 @@ defmodule KafkaManagerWeb.MessageComponents do
     <span
       :if={@long? and not @expanded?}
       data-value-preview
-      class="block bg-base-200 rounded-box px-2 py-1 whitespace-pre-wrap break-all"
+      class="block bg-base-200 border border-base-300 rounded-box px-2 py-1 whitespace-pre-wrap break-all"
     >{truncate(@value)}</span>
     <button
       :if={@long? and not @expanded?}

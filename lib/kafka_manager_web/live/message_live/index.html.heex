@@ -4,8 +4,8 @@
       <div class="breadcrumbs text-sm text-base-content/60">
         <ul>
           <li><.link navigate={~p"/"} class="link link-hover">Topics</.link></li>
-          <li class="max-w-48 truncate">
-            <.link navigate={~p"/topics/#{@topic_name}"} class="link link-hover">
+          <li>
+            <.link navigate={~p"/topics/#{@topic_name}"} class="max-w-48 truncate link link-hover">
               {@topic_name}
             </.link>
           </li>
@@ -68,7 +68,7 @@
               Offset
             </th>
             <th class="w-44 text-xs uppercase text-base-content/60">Key</th>
-            <th class="min-w-[40%] text-xs uppercase text-base-content/60">Value</th>
+            <th class="text-xs uppercase text-base-content/60">Value</th>
             <th class="w-44 whitespace-nowrap text-xs uppercase text-base-content/60">
               Timestamp
             </th>
@@ -88,23 +88,26 @@
             data-offset={message.offset}
             class="hover:bg-base-200 max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3 max-sm:border-b max-sm:border-base-300"
           >
-            <td class="align-top font-mono font-semibold text-right tabular-nums whitespace-nowrap max-sm:order-1 max-sm:text-left">
+            <td class="align-top font-mono font-semibold text-right tabular-nums whitespace-nowrap max-sm:order-1 max-sm:text-left max-sm:border-b-0">
               {message.offset}
             </td>
-            <td class="align-top text-xs font-mono max-sm:order-3 max-sm:w-full">
+            <td class="align-top text-xs font-mono max-sm:order-3 max-sm:w-full max-sm:border-b-0">
               <.message_key key={message.key} />
             </td>
-            <td data-value class="align-top text-xs font-mono max-sm:order-4 max-sm:w-full">
+            <td
+              data-value
+              class="align-top text-xs font-mono max-sm:order-4 max-sm:w-full max-sm:border-b-0"
+            >
               <.message_value
                 value={message.value}
                 expanded?={message.expanded?}
                 offset={message.offset}
               />
             </td>
-            <td class="align-top whitespace-nowrap text-xs text-base-content/60 max-sm:order-2">
+            <td class="align-top whitespace-nowrap text-xs text-base-content/60 max-sm:order-2 max-sm:border-b-0">
               {message.timestamp}
             </td>
-            <td class="align-top text-xs font-mono max-sm:order-5 max-sm:w-full">
+            <td class="align-top text-xs font-mono max-sm:order-5 max-sm:w-full max-sm:border-b-0">
               <.message_headers headers={message.headers} />
             </td>
           </tr>

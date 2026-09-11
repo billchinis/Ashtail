@@ -4,7 +4,7 @@
       <div class="breadcrumbs text-sm text-base-content/60">
         <ul>
           <li><.link navigate={~p"/groups"} class="link link-hover">Consumer groups</.link></li>
-          <li class="max-w-48 truncate">{@group_id}</li>
+          <li><span class="max-w-48 truncate inline-block align-bottom">{@group_id}</span></li>
         </ul>
       </div>
       <h1 class="text-xl max-sm:text-lg font-semibold break-all">Consumer group {@group_id}</h1>
@@ -26,11 +26,11 @@
       </div>
       <div class="stat">
         <div class="stat-title text-xs">Members</div>
-        <div class="stat-value text-2xl tabular-nums">{@group.member_count}</div>
+        <div class="stat-value text-base sm:text-lg tabular-nums">{@group.member_count}</div>
       </div>
       <div class="stat">
         <div class="stat-title text-xs">Total lag</div>
-        <div class={["stat-value text-2xl tabular-nums", lag_class(@group.total_lag)]}>
+        <div class={["stat-value text-base sm:text-lg tabular-nums", lag_class(@group.total_lag)]}>
           {@group.total_lag}
         </div>
       </div>
@@ -71,18 +71,20 @@
             data-lag={p.lag}
             class="hover:bg-base-200 max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3 max-sm:border-b max-sm:border-base-300"
           >
-            <td class="align-top font-mono break-all max-sm:w-full">{p.topic}</td>
-            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs">
+            <td class="align-top font-mono break-all max-sm:w-full max-sm:border-b-0">
+              {p.topic}
+            </td>
+            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0">
               {p.partition}
             </td>
-            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs">
+            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0">
               {p.committed_offset}
             </td>
-            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs">
+            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0">
               {p.latest_offset}
             </td>
             <td class={[
-              "align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs",
+              "align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0",
               lag_class(p.lag)
             ]}>
               {p.lag}

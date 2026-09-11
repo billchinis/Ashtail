@@ -54,7 +54,7 @@ defmodule KafkaManagerWeb.GroupLive.Show do
   def badge_class("Stable"), do: "badge-success"
   def badge_class("PreparingRebalance"), do: "badge-warning"
   def badge_class("CompletingRebalance"), do: "badge-warning"
-  def badge_class("Empty"), do: "badge-neutral"
+  def badge_class("Empty"), do: "badge-neutral text-base-content"
   def badge_class("Dead"), do: "badge-error"
   def badge_class(_other), do: "badge-ghost"
 

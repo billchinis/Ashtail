@@ -1,6 +1,11 @@
 <Layouts.app flash={@flash} section={:groups}>
   <div class="lg:flex-1 lg:flex lg:flex-col lg:min-h-0">
     <header class="shrink-0 mb-4">
+      <div class="breadcrumbs text-sm text-base-content/60">
+        <ul>
+          <li>Consumer groups</li>
+        </ul>
+      </div>
       <h1 class="text-xl max-sm:text-lg font-semibold">Consumer groups</h1>
     </header>
 
@@ -40,7 +45,7 @@
               state_class(group.state)
             ]}
           >
-            <td class="align-top max-sm:w-full">
+            <td class="align-top max-sm:w-full max-sm:border-b-0">
               <.link
                 navigate={~p"/groups/#{group.id}"}
                 class="link link-hover font-mono break-all"
@@ -48,24 +53,24 @@
                 {group.id}
               </.link>
             </td>
-            <td class="align-top max-sm:text-xs">
+            <td class="align-top max-sm:text-xs max-sm:border-b-0">
               <span class={["badge badge-sm badge-soft", badge_class(group.state)]}>
                 {group.state}
               </span>
             </td>
-            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs">
+            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0">
               {group.member_count}
             </td>
             <td
               data-total-lag={group.total_lag}
               class={[
-                "align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs",
+                "align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0",
                 lag_class(group.total_lag)
               ]}
             >
               {group.total_lag}
             </td>
-            <td class="align-top max-sm:w-full">
+            <td class="align-top max-sm:w-full max-sm:border-b-0">
               <button
                 :if={not group.expanded?}
                 type="button"

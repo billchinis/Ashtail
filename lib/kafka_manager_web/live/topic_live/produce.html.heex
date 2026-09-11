@@ -4,8 +4,8 @@
       <div class="breadcrumbs text-sm text-base-content/60">
         <ul>
           <li><.link navigate={~p"/"} class="link link-hover">Topics</.link></li>
-          <li class="max-w-48 truncate">
-            <.link navigate={~p"/topics/#{@topic_name}"} class="link link-hover">
+          <li>
+            <.link navigate={~p"/topics/#{@topic_name}"} class="max-w-48 truncate link link-hover">
               {@topic_name}
             </.link>
           </li>
@@ -107,7 +107,6 @@
               class="input input-sm font-mono"
             />
             <button
-              :if={length(@header_rows) > 1}
               type="button"
               data-remove-header
               class="btn btn-xs btn-ghost max-sm:justify-self-end"
