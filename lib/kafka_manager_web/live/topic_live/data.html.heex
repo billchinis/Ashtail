@@ -11,6 +11,7 @@
       <form
         id="filter-form"
         phx-submit="apply"
+        phx-change="filter_change"
         class={[
           "collapse sm:collapse-open",
           @filter_errors != %{} && "collapse-open"
@@ -177,6 +178,69 @@
                     Partition {p}
                   </option>
                 </select>
+              </fieldset>
+
+              <fieldset class="fieldset">
+                <legend class="text-xs font-medium">Time range</legend>
+                <select name="filter[range]" class="select select-sm w-40">
+                  <option value="" selected={@filter_form[:range].value in [nil, ""]}>
+                    Any time
+                  </option>
+                  <option value="15m" selected={@filter_form[:range].value == "15m"}>
+                    Last 15 minutes
+                  </option>
+                  <option value="1h" selected={@filter_form[:range].value == "1h"}>
+                    Last 1 hour
+                  </option>
+                  <option value="24h" selected={@filter_form[:range].value == "24h"}>
+                    Last 24 hours
+                  </option>
+                  <option value="7d" selected={@filter_form[:range].value == "7d"}>
+                    Last 7 days
+                  </option>
+                </select>
+              </fieldset>
+
+              <fieldset class="fieldset">
+                <legend class="text-xs font-medium">From (UTC)</legend>
+                <input
+                  type="text"
+                  name="filter[from]"
+                  value={@filter_form[:from].value}
+                  placeholder="YYYY-MM-DDTHH:MM:SS.sssZ"
+                  class={[
+                    "input input-sm w-56 font-mono text-xs",
+                    @filter_errors["from"] && "input-error"
+                  ]}
+                />
+                <p
+                  :if={@filter_errors["from"]}
+                  data-filter-error="from"
+                  class="text-xs text-error flex items-center gap-1"
+                >
+                  <.icon name="hero-exclamation-circle" class="size-3" />{@filter_errors["from"]}
+                </p>
+              </fieldset>
+
+              <fieldset class="fieldset">
+                <legend class="text-xs font-medium">To (UTC)</legend>
+                <input
+                  type="text"
+                  name="filter[to]"
+                  value={@filter_form[:to].value}
+                  placeholder="YYYY-MM-DDTHH:MM:SS.sssZ"
+                  class={[
+                    "input input-sm w-56 font-mono text-xs",
+                    @filter_errors["to"] && "input-error"
+                  ]}
+                />
+                <p
+                  :if={@filter_errors["to"]}
+                  data-filter-error="to"
+                  class="text-xs text-error flex items-center gap-1"
+                >
+                  <.icon name="hero-exclamation-circle" class="size-3" />{@filter_errors["to"]}
+                </p>
               </fieldset>
 
               <div class="flex gap-2 sm:ml-auto max-sm:flex-col">

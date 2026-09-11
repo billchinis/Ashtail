@@ -12,8 +12,10 @@ defmodule KafkaManager.Kafka.TopicReader do
   AC-18 wired the bounds, the cursor and the merge for the unfiltered case.
   AC-19 adds the filter predicate (`KafkaManager.Kafka.Filter`), progress
   reporting (`on_progress`), the scan budget (`max_scanned`) and the
-  backtracking-limit halt (`halted`). Time-range bounds (`filter.from`,
-  `filter.to`) arrive at AC-20.
+  backtracking-limit halt (`halted`). AC-20 adds the time-range bounds
+  (`filter.from`, `filter.to`): each set end costs one more batched
+  `ListOffsets` call by timestamp, jumping straight to the start offset
+  instead of scanning from the beginning (docs/PLAN.md 2.4).
   """
 
   alias KafkaManager.Kafka.{BrokerError, Client, Config, Filter, Messages}
@@ -41,7 +43,7 @@ defmodule KafkaManager.Kafka.TopicReader do
 
     with {:ok, metadata} <- Client.metadata(config),
          {:ok, partition_ids} <- topic_partition_ids(metadata, config, topic, filter),
-         {:ok, floor, ceiling} <- bounds(config, topic, partition_ids) do
+         {:ok, floor, ceiling} <- bounds(config, topic, partition_ids, filter) do
       direction = direction(cursor)
       # A filtered scan reads in bigger chunks than an unfiltered page, since
       # most chunks will not fill the page (docs/PLAN.md 2.4, "Refill").
@@ -62,15 +64,52 @@ defmodule KafkaManager.Kafka.TopicReader do
     end
   end
 
-  defp bounds(config, topic, partition_ids) do
+  # `floor`/`ceiling` narrow to `filter.from`/`filter.to` when set
+  # (docs/PLAN.md 2.4). `to` is inclusive, so its `ListOffsets` lookup uses
+  # `to + 1 ms` as the exclusive end. A lookup with no matching offset (1.4)
+  # means "latest", which leaves that end unrestricted; a `floor` past its
+  # `ceiling` is clamped down to `ceiling`, leaving the partition empty.
+  defp bounds(config, topic, partition_ids, filter) do
     pairs = Enum.map(partition_ids, &{topic, &1})
 
     with {:ok, earliest} <- Client.list_offsets(config, pairs, :earliest),
          {:ok, latest} <- Client.list_offsets(config, pairs, :latest),
-         {:ok, floor} <- offsets_map(config, topic, partition_ids, earliest),
-         {:ok, ceiling} <- offsets_map(config, topic, partition_ids, latest) do
-      {:ok, floor, ceiling}
+         {:ok, earliest_map} <- offsets_map(config, topic, partition_ids, earliest),
+         {:ok, latest_map} <- offsets_map(config, topic, partition_ids, latest),
+         {:ok, from_map} <- time_bound(config, topic, partition_ids, filter.from, latest_map),
+         {:ok, to_map} <-
+           time_bound(config, topic, partition_ids, to_exclusive(filter.to), latest_map) do
+      floor = merge_bound(partition_ids, earliest_map, from_map, &max/2)
+      ceiling = merge_bound(partition_ids, latest_map, to_map, &min/2)
+      {:ok, clamp_floor(partition_ids, floor, ceiling), ceiling}
     end
+  end
+
+  defp to_exclusive(nil), do: nil
+  defp to_exclusive(%DateTime{} = to), do: DateTime.add(to, 1, :millisecond)
+
+  defp time_bound(_config, _topic, _partition_ids, nil, _latest_map), do: {:ok, nil}
+
+  defp time_bound(config, topic, partition_ids, %DateTime{} = at, latest_map) do
+    ms = DateTime.to_unix(at, :millisecond)
+    pairs = Enum.map(partition_ids, &{topic, &1})
+
+    with {:ok, offsets} <- Client.list_offsets(config, pairs, {:timestamp, ms}),
+         {:ok, map} <- offsets_map(config, topic, partition_ids, offsets) do
+      {:ok, Map.new(map, fn {p, offset} -> {p, offset || Map.fetch!(latest_map, p)} end)}
+    end
+  end
+
+  defp merge_bound(_partition_ids, base_map, nil, _fun), do: base_map
+
+  defp merge_bound(partition_ids, base_map, bound_map, fun) do
+    Map.new(partition_ids, fn p ->
+      {p, fun.(Map.fetch!(base_map, p), Map.fetch!(bound_map, p))}
+    end)
+  end
+
+  defp clamp_floor(partition_ids, floor, ceiling) do
+    Map.new(partition_ids, fn p -> {p, min(Map.fetch!(floor, p), Map.fetch!(ceiling, p))} end)
   end
 
   defp run(config, topic, partition_ids, cursor, ctx) do

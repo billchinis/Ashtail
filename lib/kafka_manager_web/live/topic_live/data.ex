@@ -9,8 +9,11 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   key/value/header/partition filter, which reads through the same function
   in scan mode: any active filter runs `Kafka.read_topic/2` in a
   `start_async` task instead of synchronously, so an uncapped scan never
-  blocks the page (docs/PLAN.md 4.9, P8). Tailing (AC-21) and the time range
-  (AC-20) are not wired yet.
+  blocks the page (docs/PLAN.md 4.9, P8). AC-20 adds the time range: `from`
+  and `to` are query params like every other filter field, and the form's
+  Time range preset select is UI-only — it fills `from`/`to` on change but
+  never patches or reads on its own (docs/PLAN.md 4.9). Tailing (AC-21) is
+  not wired yet.
   """
 
   use KafkaManagerWeb, :live_view
@@ -76,6 +79,11 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   end
 
   @impl true
+  def handle_event("filter_change", %{"filter" => filter_params} = params, socket) do
+    filter_params = maybe_fill_range(params["_target"], filter_params)
+    {:noreply, assign(socket, filter_form: to_form(filter_params, as: :filter))}
+  end
+
   def handle_event("page_size", %{"page_size" => page_size}, socket) do
     page_size = parse_page_size(page_size)
 
@@ -308,8 +316,35 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   defp partition_options(%{partition_count: count}), do: 0..(count - 1)
 
   defp applied_filter_count(filter_params) do
-    ["key", "value", "header", "partition"]
+    ["key", "value", "header", "partition", "from", "to"]
     |> Enum.map(&Map.get(filter_params, &1))
     |> Enum.count(&(&1 not in [nil, ""]))
+  end
+
+  # Selecting the Time range preset fills From/To with a range ending now
+  # (DESIGN.md Assumption 9); it never patches or reads on its own
+  # (docs/PLAN.md 4.9). Editing From or To by hand leaves the form alone,
+  # which is what makes that the custom range.
+  defp maybe_fill_range(["filter", "range"], filter_params) do
+    case range_seconds(filter_params["range"]) do
+      nil -> filter_params
+      :clear -> Map.merge(filter_params, %{"from" => "", "to" => ""})
+      seconds -> Map.merge(filter_params, range_bounds(seconds))
+    end
+  end
+
+  defp maybe_fill_range(_target, filter_params), do: filter_params
+
+  defp range_seconds(""), do: :clear
+  defp range_seconds("15m"), do: 15 * 60
+  defp range_seconds("1h"), do: 60 * 60
+  defp range_seconds("24h"), do: 24 * 60 * 60
+  defp range_seconds("7d"), do: 7 * 24 * 60 * 60
+  defp range_seconds(_other), do: nil
+
+  defp range_bounds(seconds) do
+    to = DateTime.utc_now() |> DateTime.truncate(:millisecond)
+    from = DateTime.add(to, -seconds, :second)
+    %{"from" => iso_timestamp(from), "to" => iso_timestamp(to)}
   end
 end

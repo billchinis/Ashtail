@@ -67,16 +67,30 @@ defmodule KafkaManager.Kafka.Client do
   end
 
   @doc """
-  Earliest or latest offsets for the given `{topic, partition}` pairs,
-  batched into one `ListOffsets` request per partition leader (never one
-  connection per partition).
+  Earliest, latest, or (2026-09-11, AC-20) the offset of the first message
+  at or after a given UTC millisecond timestamp, for the given
+  `{topic, partition}` pairs, batched into one `ListOffsets` request per
+  partition leader (never one connection per partition).
+
+  For `{:timestamp, ms}`, a partition with no message at or after `ms`
+  comes back as `nil` in the map, never as the broker's raw `-1` (1.4).
+  `:earliest` and `:latest` are unaffected.
   """
-  @spec list_offsets(Config.t(), [{String.t(), non_neg_integer()}], :earliest | :latest) ::
-          {:ok, %{{String.t(), non_neg_integer()} => integer()}} | {:error, BrokerError.t()}
+  @spec list_offsets(
+          Config.t(),
+          [{String.t(), non_neg_integer()}],
+          :earliest | :latest | {:timestamp, integer()}
+        ) ::
+          {:ok, %{{String.t(), non_neg_integer()} => integer() | nil}} | {:error, BrokerError.t()}
   def list_offsets(%Config{}, [], _which), do: {:ok, %{}}
 
   def list_offsets(%Config{} = config, partitions, which)
       when is_list(partitions) and which in [:earliest, :latest] do
+    run(config, fn -> fetch_list_offsets(config, partitions, which) end)
+  end
+
+  def list_offsets(%Config{} = config, partitions, {:timestamp, ms} = which)
+      when is_list(partitions) and is_integer(ms) do
     run(config, fn -> fetch_list_offsets(config, partitions, which) end)
   end
 
@@ -571,9 +585,21 @@ defmodule KafkaManager.Kafka.Client do
       leaders = leader_map(metadata)
       brokers = broker_map(metadata)
       grouped = Enum.group_by(partitions, &Map.fetch!(leaders, &1))
-      list_offsets_from_leaders(config, brokers, grouped, which)
+
+      with {:ok, offsets} <- list_offsets_from_leaders(config, brokers, grouped, which) do
+        {:ok, normalize_timestamp_offsets(offsets, which)}
+      end
     end
   end
+
+  # A `-1` offset (1.4, "no message at or after this timestamp") only means
+  # something for a `{:timestamp, ms}` lookup. `:earliest`/`:latest` offsets
+  # are left exactly as the broker returned them.
+  defp normalize_timestamp_offsets(offsets, {:timestamp, _ms}) do
+    Map.new(offsets, fn {key, offset} -> {key, if(offset == -1, do: nil, else: offset)} end)
+  end
+
+  defp normalize_timestamp_offsets(offsets, _which), do: offsets
 
   defp list_offsets_from_leaders(config, brokers, grouped_by_leader, which) do
     Enum.reduce_while(grouped_by_leader, {:ok, %{}}, fn {leader_id, leader_partitions},
@@ -631,6 +657,7 @@ defmodule KafkaManager.Kafka.Client do
 
   defp offset_time(:latest), do: -1
   defp offset_time(:earliest), do: -2
+  defp offset_time({:timestamp, ms}), do: ms
 
   # A partition-level `error_code` (e.g. the partition moved leaders between
   # `metadata/1` and this request) must never surface as an `offset: -1` for
