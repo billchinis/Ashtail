@@ -390,6 +390,11 @@ defmodule KafkaManagerWeb.CoreComponents do
 
   slot :action, doc: "the slot for showing user actions in the last table column"
 
+  slot :footer,
+    doc:
+      "an optional sheet footer (docs/DESIGN.md \"topic list\" pagination), " <>
+        "rendered under a hairline inside the same sheet"
+
   def table(assigns) do
     stream? = is_struct(assigns.rows, Phoenix.LiveView.LiveStream)
 
@@ -465,6 +470,9 @@ defmodule KafkaManagerWeb.CoreComponents do
           </tr>
         </tbody>
       </table>
+      <div :if={@footer != []} class="border-t border-base-300 px-4 py-3">
+        {render_slot(@footer)}
+      </div>
     </div>
     """
   end

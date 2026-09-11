@@ -1,97 +1,62 @@
 <Layouts.app flash={@flash} section={:groups}>
   <div class="space-y-6">
     <div>
-      <div class="breadcrumbs text-sm text-base-content/60">
-        <ul>
-          <li><.link navigate={~p"/groups"} class="link link-hover">Consumer groups</.link></li>
-          <li><span class="max-w-48 truncate inline-block align-bottom">{@group_id}</span></li>
-        </ul>
-      </div>
-      <h1 class="text-xl max-sm:text-lg font-semibold break-all">Consumer group {@group_id}</h1>
+      <.link navigate={~p"/groups"} class="link link-hover text-sm text-base-content/60">
+        ← Consumer groups
+      </.link>
+      <h1 class="mt-1 font-serif text-2xl sm:text-3xl font-semibold tracking-tight break-all">
+        Consumer group {@group_id}
+      </h1>
     </div>
 
     <.broker_error error={@broker_error} />
 
     <div
       :if={@group}
-      class="stats stats-vertical sm:stats-horizontal w-full sm:w-auto bg-base-200 border border-base-300"
+      class="stats stats-vertical sm:stats-horizontal bg-base-100 shadow-sm w-full sm:w-fit"
     >
       <div class="stat">
         <div class="stat-title text-xs">State</div>
         <div class="stat-value">
-          <span class={["badge badge-md badge-soft", badge_class(@group.state)]}>
-            {@group.state}
-          </span>
+          <.state_pill state={@group.state} size="badge-md" />
         </div>
       </div>
       <div class="stat">
         <div class="stat-title text-xs">Members</div>
-        <div class="stat-value text-base sm:text-lg tabular-nums">{@group.member_count}</div>
+        <div class="stat-value text-2xl tabular-nums">{@group.member_count}</div>
       </div>
       <div class="stat">
         <div class="stat-title text-xs">Total lag</div>
-        <div class={["stat-value text-base sm:text-lg tabular-nums", lag_class(@group.total_lag)]}>
-          {@group.total_lag}
+        <div class="stat-value">
+          <.lag lag={@group.total_lag} class="text-3xl" />
         </div>
       </div>
     </div>
 
-    <div class="rounded-box border border-base-300 bg-base-100 overflow-x-auto">
-      <table class="table table-sm table-zebra text-sm w-full">
-        <thead class="max-sm:hidden">
-          <tr>
-            <th class="text-xs uppercase text-base-content/60">Topic</th>
-            <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
-              Partition
-            </th>
-            <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
-              Committed offset
-            </th>
-            <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
-              Latest offset
-            </th>
-            <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
-              Lag
-            </th>
-          </tr>
-        </thead>
-        <tbody id="group_partitions" phx-update="stream">
-          <tr id="group-partitions-empty" class="hidden only:table-row">
-            <td colspan="5" class="py-10 text-center text-base-content/60">
-              <.icon name="hero-inbox" class="size-6 mx-auto mb-2 opacity-60" />
-              <div>This group has no committed offsets.</div>
-            </td>
-          </tr>
-          <tr
-            :for={{dom_id, p} <- @streams.group_partitions}
-            id={dom_id}
-            data-topic={p.topic}
-            data-partition={p.partition}
-            data-committed-offset={p.committed_offset}
-            data-lag={p.lag}
-            class="hover:bg-base-200 max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3 max-sm:border-b max-sm:border-base-300"
-          >
-            <td class="align-top font-mono break-all max-sm:w-full max-sm:border-b-0">
-              {p.topic}
-            </td>
-            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0">
-              {p.partition}
-            </td>
-            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0">
-              {p.committed_offset}
-            </td>
-            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0">
-              {p.latest_offset}
-            </td>
-            <td class={[
-              "align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs max-sm:border-b-0",
-              lag_class(p.lag)
-            ]}>
-              {p.lag}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <.table
+      id="group_partitions"
+      rows={@streams.group_partitions}
+      empty="This group has no committed offsets."
+      row_attrs={
+        fn p ->
+          %{
+            "data-topic" => p.topic,
+            "data-partition" => p.partition,
+            "data-committed-offset" => p.committed_offset,
+            "data-lag" => p.lag
+          }
+        end
+      }
+    >
+      <:col :let={p} label="Topic">
+        <span class="font-mono break-all">{p.topic}</span>
+      </:col>
+      <:col :let={p} label="Partition" numeric>{p.partition}</:col>
+      <:col :let={p} label="Committed offset" numeric>{p.committed_offset}</:col>
+      <:col :let={p} label="Latest offset" numeric>{p.latest_offset}</:col>
+      <:col :let={p} label="Lag">
+        <.lag lag={p.lag} class="text-xl" />
+      </:col>
+    </.table>
   </div>
 </Layouts.app>

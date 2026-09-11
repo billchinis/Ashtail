@@ -3,8 +3,7 @@ defmodule KafkaManagerWeb.GroupComponents do
   Shared rendering for a consumer group's state and lag (DESIGN.md "Shared
   pieces"), used everywhere a group's state or lag is shown so the pages
   cannot drift apart: `state_pill/1` and `lag/1` are the current function
-  components; `badge_class/1` and `lag_class/1` are the class helpers the
-  not-yet-restyled group pages still call.
+  components.
   """
 
   use Phoenix.Component
@@ -14,13 +13,16 @@ defmodule KafkaManagerWeb.GroupComponents do
   `status` dot plus a `badge-soft` badge, with the state word kept in
   `base-content` (DESIGN.md Assumption 3 — Paper's success/warning text
   colours fail 4.5:1 at this size, so colour carries the dot and the tint,
-  never the word).
+  never the word). `size` defaults to `badge-sm`; the group detail stats
+  strip (DESIGN.md "consumer group detail") is the one caller that passes
+  `badge-md`.
   """
   attr :state, :string, required: true
+  attr :size, :string, default: "badge-sm"
 
   def state_pill(assigns) do
     ~H"""
-    <span class={["badge badge-sm badge-soft gap-1.5 text-base-content", pill_color(@state)]}>
+    <span class={["badge badge-soft gap-1.5 text-base-content", @size, pill_color(@state)]}>
       <span class={["status status-sm", pill_dot(@state)]} />{@state}
     </span>
     """
@@ -71,22 +73,4 @@ defmodule KafkaManagerWeb.GroupComponents do
     </span>
     """
   end
-
-  @doc """
-  The DECISIONS.md colour mapping for a group's raw Kafka state, as a
-  daisyUI badge modifier class, for the coloured badge in the State cell
-  (DESIGN.md).
-  """
-  def badge_class("Stable"), do: "badge-success"
-  def badge_class("PreparingRebalance"), do: "badge-warning"
-  def badge_class("CompletingRebalance"), do: "badge-warning"
-  def badge_class("Empty"), do: "badge-neutral text-base-content"
-  def badge_class("Dead"), do: "badge-error"
-  def badge_class(_other), do: "badge-ghost"
-
-  @doc """
-  Lag colour rule (DESIGN.md): non-zero lag is a warning, zero lag is muted.
-  """
-  def lag_class(lag) when is_integer(lag) and lag > 0, do: "text-warning font-semibold"
-  def lag_class(_lag), do: "text-base-content/50"
 end

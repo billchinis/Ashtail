@@ -1,18 +1,15 @@
 <Layouts.app flash={@flash} section={:topics}>
   <div class="space-y-6">
     <div>
-      <div class="breadcrumbs text-sm text-base-content/60">
-        <ul>
-          <li><.link navigate={~p"/"} class="link link-hover">Topics</.link></li>
-          <li>
-            <.link navigate={~p"/topics/#{@topic_name}"} class="max-w-48 truncate link link-hover">
-              {@topic_name}
-            </.link>
-          </li>
-          <li>Produce</li>
-        </ul>
-      </div>
-      <h1 class="text-xl max-sm:text-lg font-semibold break-all">Produce to {@topic_name}</h1>
+      <.link
+        navigate={~p"/topics/#{@topic_name}"}
+        class="link link-hover text-sm text-base-content/60"
+      >
+        ← {@topic_name}
+      </.link>
+      <h1 class="mt-1 font-serif text-2xl sm:text-3xl font-semibold tracking-tight break-all">
+        Produce to {@topic_name}
+      </h1>
     </div>
 
     <.broker_error error={@broker_error} />
@@ -22,7 +19,7 @@
       data-produce-result
       data-partition={@last_produced.partition}
       data-offset={@last_produced.offset}
-      class="alert alert-success alert-soft max-w-3xl"
+      class="alert alert-soft alert-success max-w-3xl"
     >
       <.icon name="hero-check-circle" class="size-5 shrink-0" />
       <span>
@@ -35,20 +32,21 @@
       id="produce-form"
       data-produce-form
       phx-submit="produce"
-      class="card card-border bg-base-200 max-w-3xl"
+      class="card bg-base-100 shadow-sm max-w-3xl"
     >
-      <div class="card-body gap-4">
-        <div :if={@form_error} data-form-error class="alert alert-error alert-soft">
+      <div class="card-body p-8 gap-6">
+        <div :if={@form_error} data-form-error class="alert alert-soft alert-error">
           <.icon name="hero-exclamation-circle" class="size-5 shrink-0" />
           <span>{@form_error}</span>
         </div>
 
-        <div class="grid grid-cols-2 gap-4 max-sm:grid-cols-1">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <.input
             field={@form[:partition]}
             type="select"
             label="Partition"
             data-partition-select
+            class="select w-full"
             options={["auto"] ++ Enum.map(partition_options(@partition_count), &to_string/1)}
             value="auto"
           />
@@ -57,6 +55,7 @@
             type="text"
             label="Timestamp (ISO 8601, blank means now)"
             placeholder="2026-01-02T03:04:05Z"
+            class="input w-full font-mono"
             data-timestamp-input
           />
         </div>
@@ -119,7 +118,12 @@
               <.icon name="hero-x-mark" class="size-3" /> Remove
             </button>
           </div>
-          <button type="button" data-add-header class="btn btn-sm btn-soft" phx-click="add_header">
+          <button
+            type="button"
+            data-add-header
+            class="btn btn-sm btn-ghost"
+            phx-click="add_header"
+          >
             <.icon name="hero-plus" class="size-4" /> Add header
           </button>
         </fieldset>
