@@ -1,82 +1,84 @@
-<.broker_error error={@broker_error} />
+<Layouts.app flash={@flash} section={:topics}>
+  <.broker_error error={@broker_error} />
 
-<h1 class="text-lg font-semibold break-all">Topic {@topic_name}, partition {@partition}</h1>
+  <h1 class="text-lg font-semibold break-all">Topic {@topic_name}, partition {@partition}</h1>
 
-<div class="flex flex-wrap items-end gap-4 mb-4">
-  <form id="page-size-form" data-page-size-form phx-change="page_size" class="fieldset">
-    <label for="page_size" class="label">Page size</label>
-    <select id="page_size" name="page_size" class="select select-sm">
-      <option value="20" selected={@page_size == 20}>20</option>
-      <option value="50" selected={@page_size == 50}>50</option>
-    </select>
-  </form>
+  <div class="flex flex-wrap items-end gap-4 mb-4">
+    <form id="page-size-form" data-page-size-form phx-change="page_size" class="fieldset">
+      <label for="page_size" class="label">Page size</label>
+      <select id="page_size" name="page_size" class="select select-sm">
+        <option value="20" selected={@page_size == 20}>20</option>
+        <option value="50" selected={@page_size == 50}>50</option>
+      </select>
+    </form>
 
-  <div class="flex items-center gap-2">
-    <button type="button" data-tail-toggle class="btn btn-sm btn-soft" phx-click="toggle_tail">
-      {if @tailing?, do: "Stop tailing", else: "Start tailing"}
-    </button>
-    <span
-      data-tail={if @tailing?, do: "live", else: "off"}
-      class={["badge badge-sm", @tailing? && "badge-success", not @tailing? && "badge-ghost"]}
-    >
-      {if @tailing?, do: "live", else: "off"}
-    </span>
+    <div class="flex items-center gap-2">
+      <button type="button" data-tail-toggle class="btn btn-sm btn-soft" phx-click="toggle_tail">
+        {if @tailing?, do: "Stop tailing", else: "Start tailing"}
+      </button>
+      <span
+        data-tail={if @tailing?, do: "live", else: "off"}
+        class={["badge badge-sm", @tailing? && "badge-success", not @tailing? && "badge-ghost"]}
+      >
+        {if @tailing?, do: "live", else: "off"}
+      </span>
+    </div>
   </div>
-</div>
 
-<div class="overflow-x-auto">
-  <table class="table table-zebra min-w-[900px]">
-    <thead>
-      <tr>
-        <th>Offset</th>
-        <th>Key</th>
-        <th>Value</th>
-        <th>Timestamp</th>
-        <th>Headers</th>
-      </tr>
-    </thead>
-    <tbody id="messages" phx-update="stream">
-      <tr :for={{dom_id, message} <- @streams.messages} id={dom_id} data-offset={message.offset}>
-        <td class="whitespace-nowrap">{message.offset}</td>
-        <td class="min-w-32 max-w-xs">
-          <.message_key key={message.key} />
-        </td>
-        <td data-value class="max-w-sm">
-          <.message_value
-            value={message.value}
-            expanded?={message.expanded?}
-            offset={message.offset}
-          />
-        </td>
-        <td class="whitespace-nowrap">{message.timestamp}</td>
-        <td class="max-w-xs"><.message_headers headers={message.headers} /></td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+  <div class="overflow-x-auto">
+    <table class="table table-zebra min-w-[900px]">
+      <thead>
+        <tr>
+          <th>Offset</th>
+          <th>Key</th>
+          <th>Value</th>
+          <th>Timestamp</th>
+          <th>Headers</th>
+        </tr>
+      </thead>
+      <tbody id="messages" phx-update="stream">
+        <tr :for={{dom_id, message} <- @streams.messages} id={dom_id} data-offset={message.offset}>
+          <td class="whitespace-nowrap">{message.offset}</td>
+          <td class="min-w-32 max-w-xs">
+            <.message_key key={message.key} />
+          </td>
+          <td data-value class="max-w-sm">
+            <.message_value
+              value={message.value}
+              expanded?={message.expanded?}
+              offset={message.offset}
+            />
+          </td>
+          <td class="whitespace-nowrap">{message.timestamp}</td>
+          <td class="max-w-xs"><.message_headers headers={message.headers} /></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
 
-<div class="flex items-center gap-4 mt-4">
-  <.link
-    :if={@earliest != nil and @offset > @earliest}
-    data-prev-page
-    class="btn btn-sm btn-soft"
-    patch={
-      message_path(
-        @topic_name,
-        @partition,
-        max(@earliest, @offset - @page_size),
-        @page_size
-      )
-    }
-  >
-    Previous page
-  </.link>
-  <.link
-    :if={@latest != nil and @offset + @page_size < @latest}
-    data-next-page
-    class="btn btn-sm btn-soft"
-    patch={message_path(@topic_name, @partition, @offset + @page_size, @page_size)}
-  >
-    Next page
-  </.link>
-</div>
+  <div class="flex items-center gap-4 mt-4">
+    <.link
+      :if={@earliest != nil and @offset > @earliest}
+      data-prev-page
+      class="btn btn-sm btn-soft"
+      patch={
+        message_path(
+          @topic_name,
+          @partition,
+          max(@earliest, @offset - @page_size),
+          @page_size
+        )
+      }
+    >
+      Previous page
+    </.link>
+    <.link
+      :if={@latest != nil and @offset + @page_size < @latest}
+      data-next-page
+      class="btn btn-sm btn-soft"
+      patch={message_path(@topic_name, @partition, @offset + @page_size, @page_size)}
+    >
+      Next page
+    </.link>
+  </div>
+</Layouts.app>

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="csrf-token" content={get_csrf_token()} />
-    <.live_title default="KafkaManager" suffix=" · Phoenix Framework" phx-no-format>{assigns[:page_title]}</.live_title>
+    <.live_title default="KafkaManager" phx-no-format>{assigns[:page_title]}</.live_title>
     <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
     <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
     </script>
@@ -24,7 +24,16 @@
           }
         };
         if (!document.documentElement.hasAttribute("data-theme")) {
-          setTheme(localStorage.getItem("phx:theme") || "system");
+          // No stored choice: default to dark regardless of the OS setting
+          // (docs/DESIGN.md Assumption 1), rather than following the system
+          // preference like the "system" toggle option does.
+          const stored = localStorage.getItem("phx:theme");
+          if (stored) {
+            setTheme(stored);
+          } else {
+            document.documentElement.setAttribute("data-theme", "dark");
+            document.documentElement.setAttribute("data-theme-source", "system");
+          }
         }
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
         window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
@@ -38,12 +47,6 @@
     </script>
   </head>
   <body class="bg-base-100 text-base-content">
-    <main class="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8">
-      <nav data-app-nav class="flex gap-4 mb-4 text-sm">
-        <.link navigate={~p"/"} data-nav-topics class="link">Topics</.link>
-        <.link navigate={~p"/groups"} data-nav-groups class="link">Groups</.link>
-      </nav>
-      {@inner_content}
-    </main>
+    {@inner_content}
   </body>
 </html>

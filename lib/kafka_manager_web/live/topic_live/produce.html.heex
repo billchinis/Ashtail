@@ -1,77 +1,79 @@
-<.broker_error error={@broker_error} />
+<Layouts.app flash={@flash} section={:topics}>
+  <.broker_error error={@broker_error} />
 
-<h1 class="text-lg font-semibold break-all">Produce to {@topic_name}</h1>
+  <h1 class="text-lg font-semibold break-all">Produce to {@topic_name}</h1>
 
-<div
-  :if={@last_produced}
-  data-produce-result
-  data-partition={@last_produced.partition}
-  data-offset={@last_produced.offset}
-  class="alert alert-success my-4"
->
-  Produced to partition {@last_produced.partition} at offset {@last_produced.offset}.
-</div>
+  <div
+    :if={@last_produced}
+    data-produce-result
+    data-partition={@last_produced.partition}
+    data-offset={@last_produced.offset}
+    class="alert alert-success my-4"
+  >
+    Produced to partition {@last_produced.partition} at offset {@last_produced.offset}.
+  </div>
 
-<p :if={@form_error} data-form-error class="text-error my-2">{@form_error}</p>
+  <p :if={@form_error} data-form-error class="text-error my-2">{@form_error}</p>
 
-<.form for={@form} id="produce-form" data-produce-form phx-submit="produce" class="space-y-2">
-  <.input
-    field={@form[:partition]}
-    type="select"
-    label="Partition"
-    data-partition-select
-    options={["auto"] ++ Enum.map(partition_options(@partition_count), &to_string/1)}
-    value="auto"
-  />
+  <.form for={@form} id="produce-form" data-produce-form phx-submit="produce" class="space-y-2">
+    <.input
+      field={@form[:partition]}
+      type="select"
+      label="Partition"
+      data-partition-select
+      options={["auto"] ++ Enum.map(partition_options(@partition_count), &to_string/1)}
+      value="auto"
+    />
 
-  <.input field={@form[:key]} type="text" label="Key" data-key-input />
-  <.input field={@form[:null_key]} type="checkbox" label="Null key" data-null-key-checkbox />
+    <.input field={@form[:key]} type="text" label="Key" data-key-input />
+    <.input field={@form[:null_key]} type="checkbox" label="Null key" data-null-key-checkbox />
 
-  <.input field={@form[:value]} type="textarea" label="Value" data-value-input />
+    <.input field={@form[:value]} type="textarea" label="Value" data-value-input />
 
-  <fieldset data-headers class="fieldset border border-base-300 rounded-box p-4">
-    <legend class="fieldset-legend">Headers</legend>
-    <div
-      :for={id <- @header_rows}
-      data-header-row={id}
-      class="flex flex-wrap items-center gap-2 mb-2"
-    >
-      <input
-        type="text"
-        name={"message[headers][#{id}][name]"}
-        placeholder="name"
-        data-header-name
-        class="input input-sm"
-      />
-      <input
-        type="text"
-        name={"message[headers][#{id}][value]"}
-        placeholder="value"
-        data-header-value
-        class="input input-sm"
-      />
-      <button
-        :if={length(@header_rows) > 1}
-        type="button"
-        data-remove-header
-        class="btn btn-xs btn-soft"
-        phx-click="remove_header"
-        phx-value-row={id}
+    <fieldset data-headers class="fieldset border border-base-300 rounded-box p-4">
+      <legend class="fieldset-legend">Headers</legend>
+      <div
+        :for={id <- @header_rows}
+        data-header-row={id}
+        class="flex flex-wrap items-center gap-2 mb-2"
       >
-        Remove
+        <input
+          type="text"
+          name={"message[headers][#{id}][name]"}
+          placeholder="name"
+          data-header-name
+          class="input input-sm"
+        />
+        <input
+          type="text"
+          name={"message[headers][#{id}][value]"}
+          placeholder="value"
+          data-header-value
+          class="input input-sm"
+        />
+        <button
+          :if={length(@header_rows) > 1}
+          type="button"
+          data-remove-header
+          class="btn btn-xs btn-soft"
+          phx-click="remove_header"
+          phx-value-row={id}
+        >
+          Remove
+        </button>
+      </div>
+      <button type="button" data-add-header class="btn btn-sm btn-soft" phx-click="add_header">
+        Add header
       </button>
-    </div>
-    <button type="button" data-add-header class="btn btn-sm btn-soft" phx-click="add_header">
-      Add header
-    </button>
-  </fieldset>
+    </fieldset>
 
-  <.input
-    field={@form[:timestamp]}
-    type="text"
-    label="Timestamp (ISO 8601, blank means now)"
-    data-timestamp-input
-  />
+    <.input
+      field={@form[:timestamp]}
+      type="text"
+      label="Timestamp (ISO 8601, blank means now)"
+      data-timestamp-input
+    />
 
-  <button type="submit" data-submit-produce class="btn btn-primary">Produce</button>
-</.form>
+    <button type="submit" data-submit-produce class="btn btn-primary">Produce</button>
+  </.form>
+</Layouts.app>

@@ -31,42 +31,68 @@ defmodule KafkaManagerWeb.Layouts do
     default: nil,
     doc: "the current [scope](https://phoenix.hexdocs.pm/scopes.html)"
 
+  attr :section, :atom,
+    default: nil,
+    values: [nil, :topics, :groups],
+    doc: "the active sidebar/dock section, so the current item can be marked active"
+
   slot :inner_block, required: true
 
   def app(assigns) do
     ~H"""
-    <header class="navbar px-4 sm:px-6 lg:px-8">
-      <div class="flex-1">
-        <a href="/" class="flex-1 flex w-fit items-center gap-2">
-          <img src={~p"/images/logo.svg"} width="36" />
-          <span class="text-sm font-semibold">v{Application.spec(:phoenix, :vsn)}</span>
-        </a>
-      </div>
-      <div class="flex-none">
-        <ul class="flex flex-column px-1 space-x-4 items-center">
+    <div class="lg:flex lg:h-screen bg-base-100 text-base-content">
+      <aside class="hidden lg:flex lg:flex-col lg:w-56 lg:shrink-0 bg-base-200 border-r border-base-300 lg:sticky lg:top-0 lg:h-screen">
+        <div class="h-14 px-4 flex items-center gap-2">
+          <.icon name="hero-circle-stack" class="size-5" />
+          <span class="text-base font-semibold">KafkaManager</span>
+        </div>
+        <ul class="menu w-full">
+          <li class="menu-title">Cluster</li>
           <li>
-            <a href="https://phoenixframework.org/" class="btn btn-ghost">Website</a>
+            <.link navigate={~p"/"} data-nav-topics class={[@section == :topics && "menu-active"]}>
+              <.icon name="hero-queue-list" class="size-4" /> Topics
+            </.link>
           </li>
           <li>
-            <a href="https://github.com/phoenixframework/phoenix" class="btn btn-ghost">GitHub</a>
-          </li>
-          <li>
-            <.theme_toggle />
-          </li>
-          <li>
-            <a href="https://phoenix.hexdocs.pm/overview.html" class="btn btn-primary">
-              Get Started <span aria-hidden="true">&rarr;</span>
-            </a>
+            <.link
+              navigate={~p"/groups"}
+              data-nav-groups
+              class={[@section == :groups && "menu-active"]}
+            >
+              <.icon name="hero-user-group" class="size-4" /> Consumer groups
+            </.link>
           </li>
         </ul>
-      </div>
-    </header>
+        <div class="mt-auto p-4">
+          <.theme_toggle />
+        </div>
+      </aside>
 
-    <main class="px-4 py-20 sm:px-6 lg:px-8">
-      <div class="mx-auto max-w-2xl space-y-4">
-        {render_slot(@inner_block)}
+      <div class="flex flex-col min-w-0 lg:flex-1 lg:min-h-0">
+        <div class="lg:hidden navbar min-h-12 bg-base-200 border-b border-base-300 sticky top-0 z-20 px-4">
+          <div class="flex-1 flex items-center gap-2">
+            <.icon name="hero-circle-stack" class="size-5" />
+            <span class="text-base font-semibold">KafkaManager</span>
+          </div>
+          <.theme_toggle />
+        </div>
+
+        <main class="bg-base-100 px-4 py-4 pb-20 lg:px-6 lg:py-5 lg:pb-5 lg:flex-1 lg:flex lg:flex-col lg:min-h-0">
+          {render_slot(@inner_block)}
+        </main>
+
+        <div class="dock dock-sm bg-base-200 border-t border-base-300 fixed bottom-0 inset-x-0 z-20 lg:hidden">
+          <.link navigate={~p"/"} class={[@section == :topics && "dock-active"]}>
+            <.icon name="hero-queue-list" class="size-5" />
+            <span class="dock-label">Topics</span>
+          </.link>
+          <.link navigate={~p"/groups"} class={[@section == :groups && "dock-active"]}>
+            <.icon name="hero-user-group" class="size-5" />
+            <span class="dock-label">Groups</span>
+          </.link>
+        </div>
       </div>
-    </main>
+    </div>
 
     <.flash_group flash={@flash} />
     """

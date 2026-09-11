@@ -1,69 +1,118 @@
-<.broker_error error={@broker_error} />
+<Layouts.app flash={@flash} section={:topics}>
+  <div class="lg:flex-1 lg:flex lg:flex-col lg:min-h-0">
+    <header class="shrink-0 mb-4 flex items-start justify-between gap-4 flex-wrap">
+      <h1 class="text-xl max-sm:text-lg font-semibold">Topics</h1>
+      <span class="badge badge-ghost">{@total} topics</span>
+    </header>
 
-<h1 class="text-lg font-semibold">Topics</h1>
-<p class="text-sm text-base-content/70 mb-4">{@total} topics</p>
+    <.broker_error error={@broker_error} />
 
-<div class="flex flex-wrap items-end gap-4 mb-4">
-  <form id="page-size-form" data-page-size-form phx-change="page_size" class="fieldset">
-    <label for="page_size" class="label">Page size</label>
-    <select id="page_size" name="page_size" class="select select-sm">
-      <option value="20" selected={@page_size == 20}>20</option>
-      <option value="50" selected={@page_size == 50}>50</option>
-    </select>
-  </form>
+    <div class="shrink-0 flex flex-wrap items-end gap-4 mb-4">
+      <form id="search-form" data-search-form phx-change="search" class="w-full sm:w-auto">
+        <label for="q" class="sr-only">Search</label>
+        <label class="input input-sm w-full sm:w-72">
+          <.icon name="hero-magnifying-glass" class="size-4 opacity-60" />
+          <input
+            type="text"
+            id="q"
+            name="q"
+            value={@search}
+            phx-debounce="200"
+            placeholder="Filter by name"
+          />
+          <span class="loading loading-spinner loading-xs hidden phx-change-loading:inline-block" />
+        </label>
+      </form>
 
-  <form id="search-form" data-search-form phx-change="search" class="fieldset">
-    <label for="q" class="label">Search</label>
-    <input
-      type="text"
-      id="q"
-      name="q"
-      value={@search}
-      phx-debounce="200"
-      class="input input-sm"
-    />
-  </form>
-</div>
+      <form
+        id="page-size-form"
+        data-page-size-form
+        phx-change="page_size"
+        class="flex items-center gap-2 sm:ml-auto"
+      >
+        <label for="page_size" class="label text-xs">Page size</label>
+        <select id="page_size" name="page_size" class="select select-sm w-20">
+          <option value="20" selected={@page_size == 20}>20</option>
+          <option value="50" selected={@page_size == 50}>50</option>
+        </select>
+        <span class="loading loading-spinner loading-xs hidden phx-change-loading:inline-block" />
+      </form>
+    </div>
 
-<div class="overflow-x-auto">
-  <table class="table table-zebra min-w-[640px]">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Partitions</th>
-        <th>Replication</th>
-        <th>Messages</th>
-      </tr>
-    </thead>
-    <tbody id="topics" phx-update="stream">
-      <tr :for={{dom_id, topic} <- @streams.topics} id={dom_id} data-topic={topic.name}>
-        <td class="min-w-40 max-w-xs break-all">
-          <.link navigate={~p"/topics/#{topic.name}"} class="link">{topic.name}</.link>
-        </td>
-        <td class="whitespace-nowrap">{topic.partition_count} partitions</td>
-        <td class="whitespace-nowrap">RF {topic.replication_factor}</td>
-        <td class="whitespace-nowrap">{topic.message_count} messages</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+    <div class="lg:flex-1 lg:min-h-0 rounded-box border border-base-300 bg-base-100 overflow-x-auto lg:overflow-auto">
+      <table class="table table-sm table-zebra text-sm w-full lg:table-pin-rows">
+        <thead class="max-sm:hidden">
+          <tr>
+            <th class="text-xs uppercase text-base-content/60">Name</th>
+            <th class="w-32 text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+              Partitions
+            </th>
+            <th class="w-28 text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+              Replication
+            </th>
+            <th class="w-36 text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+              Messages
+            </th>
+          </tr>
+        </thead>
+        <tbody id="topics" phx-update="stream">
+          <tr id="topics-empty" class="hidden only:table-row">
+            <td colspan="4" class="py-10 text-center text-base-content/60">
+              <.icon name="hero-inbox" class="size-6 mx-auto mb-2 opacity-60" />
+              <div>No topics match.</div>
+            </td>
+          </tr>
+          <tr
+            :for={{dom_id, topic} <- @streams.topics}
+            id={dom_id}
+            data-topic={topic.name}
+            class="hover:bg-base-200 max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3 max-sm:border-b max-sm:border-base-300"
+          >
+            <td class="align-top max-sm:w-full">
+              <.link
+                navigate={~p"/topics/#{topic.name}"}
+                class="link link-hover font-mono break-all line-clamp-2 max-sm:line-clamp-3"
+              >
+                {topic.name}
+              </.link>
+            </td>
+            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs">
+              {topic.partition_count} partitions
+            </td>
+            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs">
+              RF {topic.replication_factor}
+            </td>
+            <td class={[
+              "align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs",
+              topic.message_count == 0 && "text-base-content/50"
+            ]}>
+              {topic.message_count} messages
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
 
-<div class="flex items-center gap-4 mt-4">
-  <.link
-    :if={@page > 1}
-    data-prev-page
-    class="btn btn-sm btn-soft"
-    patch={page_path(@page - 1, @page_size, @search)}
-  >
-    Previous page
-  </.link>
-  <span>Page {@page} of {@page_count}</span>
-  <.link
-    :if={@page < @page_count}
-    data-next-page
-    class="btn btn-sm btn-soft"
-    patch={page_path(@page + 1, @page_size, @search)}
-  >
-    Next page
-  </.link>
-</div>
+    <div class="shrink-0 flex items-center justify-between gap-4 border-t border-base-300 pt-3 mt-4">
+      <span class="text-sm text-base-content/60">Page {@page} of {@page_count}</span>
+      <div class="join">
+        <.link
+          :if={@page > 1}
+          data-prev-page
+          class="join-item btn btn-sm btn-ghost phx-click-loading:opacity-60"
+          patch={page_path(@page - 1, @page_size, @search)}
+        >
+          <.icon name="hero-chevron-left" class="size-4" /> Previous page
+        </.link>
+        <.link
+          :if={@page < @page_count}
+          data-next-page
+          class="join-item btn btn-sm btn-ghost phx-click-loading:opacity-60"
+          patch={page_path(@page + 1, @page_size, @search)}
+        >
+          Next page <.icon name="hero-chevron-right" class="size-4" />
+        </.link>
+      </div>
+    </div>
+  </div>
+</Layouts.app>

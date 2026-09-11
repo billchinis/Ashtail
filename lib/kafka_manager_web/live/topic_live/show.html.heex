@@ -1,67 +1,117 @@
-<.broker_error error={@broker_error} />
+<Layouts.app flash={@flash} section={:topics}>
+  <div class="space-y-6">
+    <div>
+      <div class="breadcrumbs text-sm text-base-content/60">
+        <ul>
+          <li><.link navigate={~p"/"} class="link link-hover">Topics</.link></li>
+          <li class="max-w-48 truncate">{@topic_name}</li>
+        </ul>
+      </div>
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <h1 class="text-xl max-sm:text-lg font-semibold break-all">Topic {@topic_name}</h1>
+        <.link
+          navigate={~p"/topics/#{@topic_name}/produce"}
+          data-produce-link
+          class="btn btn-sm btn-primary phx-click-loading:opacity-60"
+        >
+          <.icon name="hero-paper-airplane" class="size-4" /> Produce message
+        </.link>
+      </div>
+    </div>
 
-<h1 class="text-lg font-semibold break-all">Topic {@topic_name}</h1>
+    <.broker_error error={@broker_error} />
 
-<.link
-  navigate={~p"/topics/#{@topic_name}/produce"}
-  data-produce-link
-  class="btn btn-sm btn-primary"
->
-  Produce message
-</.link>
+    <div class="grid xl:grid-cols-5 gap-6">
+      <section class="xl:col-span-3">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-2">
+          Partitions
+        </h2>
+        <div class="rounded-box border border-base-300 bg-base-100 overflow-x-auto">
+          <table class="table table-sm table-zebra text-sm w-full">
+            <thead class="max-sm:hidden">
+              <tr>
+                <th class="text-xs uppercase text-base-content/60">Partition</th>
+                <th class="text-xs uppercase text-base-content/60">Leader</th>
+                <th class="text-xs uppercase text-base-content/60">Replicas</th>
+                <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+                  Earliest
+                </th>
+                <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+                  Latest
+                </th>
+              </tr>
+            </thead>
+            <tbody id="partitions" phx-update="stream">
+              <tr id="partitions-empty" class="hidden only:table-row">
+                <td colspan="5" class="py-10 text-center text-base-content/60">
+                  <.icon name="hero-inbox" class="size-6 mx-auto mb-2 opacity-60" />
+                  <div>No partitions returned.</div>
+                </td>
+              </tr>
+              <tr
+                :for={{dom_id, partition} <- @streams.partitions}
+                id={dom_id}
+                data-partition={partition.id}
+                data-earliest={partition.earliest}
+                data-latest={partition.latest}
+                class="hover:bg-base-200 max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3 max-sm:border-b max-sm:border-base-300"
+              >
+                <td class="align-top max-sm:w-full">
+                  <.link
+                    navigate={~p"/topics/#{@topic_name}/partitions/#{partition.id}"}
+                    class="link link-hover font-mono inline-flex items-center gap-1"
+                  >
+                    {partition.id} <.icon name="hero-chevron-right" class="size-3" />
+                  </.link>
+                </td>
+                <td class="align-top whitespace-nowrap max-sm:text-xs">{partition.leader}</td>
+                <td class="align-top whitespace-nowrap max-sm:text-xs">
+                  {Enum.join(partition.replicas, ",")}
+                </td>
+                <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs">
+                  {partition.earliest}
+                </td>
+                <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs">
+                  {partition.latest}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-<h2 class="text-base font-semibold mt-6 mb-2">Partitions</h2>
-<div class="overflow-x-auto">
-  <table class="table table-zebra">
-    <thead>
-      <tr>
-        <th>Partition</th>
-        <th>Leader</th>
-        <th>Replicas</th>
-        <th>Earliest</th>
-        <th>Latest</th>
-      </tr>
-    </thead>
-    <tbody id="partitions" phx-update="stream">
-      <tr
-        :for={{dom_id, partition} <- @streams.partitions}
-        id={dom_id}
-        data-partition={partition.id}
-        data-earliest={partition.earliest}
-        data-latest={partition.latest}
-      >
-        <td class="whitespace-nowrap">
-          <.link navigate={~p"/topics/#{@topic_name}/partitions/#{partition.id}"} class="link">
-            {partition.id}
-          </.link>
-        </td>
-        <td class="whitespace-nowrap">{partition.leader}</td>
-        <td class="whitespace-nowrap">{Enum.join(partition.replicas, ",")}</td>
-        <td class="whitespace-nowrap">{partition.earliest}</td>
-        <td class="whitespace-nowrap">{partition.latest}</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
-<h2 class="text-base font-semibold mt-6 mb-2">Configuration</h2>
-<div class="overflow-x-auto">
-  <table class="table table-zebra min-w-[480px]">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Value</th>
-      </tr>
-    </thead>
-    <tbody id="topic_configs" phx-update="stream">
-      <tr
-        :for={{dom_id, entry} <- @streams.topic_configs}
-        id={dom_id}
-        data-config-name={entry.name}
-      >
-        <td class="min-w-40 max-w-xs break-all">{entry.name}</td>
-        <td class="min-w-24 max-w-xs break-all">{entry.value}</td>
-      </tr>
-    </tbody>
-  </table>
-</div>
+      <section class="xl:col-span-2">
+        <h2 class="text-sm font-semibold uppercase tracking-wide text-base-content/60 mb-2">
+          Configuration
+        </h2>
+        <div class="rounded-box border border-base-300 bg-base-100 overflow-x-auto">
+          <table class="table table-sm table-zebra text-sm w-full">
+            <thead class="max-sm:hidden">
+              <tr>
+                <th class="w-1/2 text-xs uppercase text-base-content/60">Name</th>
+                <th class="text-xs uppercase text-base-content/60">Value</th>
+              </tr>
+            </thead>
+            <tbody id="topic_configs" phx-update="stream">
+              <tr id="topic-configs-empty" class="hidden only:table-row">
+                <td colspan="2" class="py-10 text-center text-base-content/60">
+                  <.icon name="hero-inbox" class="size-6 mx-auto mb-2 opacity-60" />
+                  <div>No configuration returned.</div>
+                </td>
+              </tr>
+              <tr
+                :for={{dom_id, entry} <- @streams.topic_configs}
+                id={dom_id}
+                data-config-name={entry.name}
+                class="hover:bg-base-200 max-sm:flex max-sm:flex-col max-sm:py-3 max-sm:border-b max-sm:border-base-300"
+              >
+                <td class="align-top font-mono text-xs break-all w-1/2">{entry.name}</td>
+                <td class="align-top font-mono text-xs break-all">{entry.value}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  </div>
+</Layouts.app>
