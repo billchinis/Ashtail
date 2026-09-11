@@ -77,5 +77,23 @@ defmodule KafkaManagerWeb.GroupLive.Index do
   def state_class("Dead"), do: "state-dead"
   def state_class(_other), do: "state-unknown"
 
+  @doc """
+  The DECISIONS.md colour mapping for a group's raw Kafka state, as a
+  daisyUI badge modifier class, for the coloured badge in the State cell
+  (DESIGN.md).
+  """
+  def badge_class("Stable"), do: "badge-success"
+  def badge_class("PreparingRebalance"), do: "badge-warning"
+  def badge_class("CompletingRebalance"), do: "badge-warning"
+  def badge_class("Empty"), do: "badge-neutral"
+  def badge_class("Dead"), do: "badge-error"
+  def badge_class(_other), do: "badge-ghost"
+
+  @doc """
+  Lag colour rule (DESIGN.md): non-zero lag is a warning, zero lag is muted.
+  """
+  def lag_class(lag) when is_integer(lag) and lag > 0, do: "text-warning font-semibold"
+  def lag_class(_lag), do: "text-base-content/50"
+
   defp slug(id), do: String.replace(id, ~r/[^a-zA-Z0-9]+/, "-")
 end

@@ -1,74 +1,143 @@
 <Layouts.app flash={@flash} section={:groups}>
-  <.broker_error error={@broker_error} />
+  <div class="lg:flex-1 lg:flex lg:flex-col lg:min-h-0">
+    <header class="shrink-0 mb-4">
+      <h1 class="text-xl max-sm:text-lg font-semibold">Consumer groups</h1>
+    </header>
 
-  <h1 class="text-lg font-semibold mb-4">Consumer groups</h1>
+    <div class="shrink-0 mb-4">
+      <.broker_error error={@broker_error} />
+    </div>
 
-  <div class="overflow-x-auto">
-    <table class="table table-zebra min-w-[640px]">
-      <thead>
-        <tr>
-          <th>Group</th>
-          <th>State</th>
-          <th>Members</th>
-          <th>Total lag</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody id="groups" phx-update="stream">
-        <tr
-          :for={{dom_id, group} <- @streams.groups}
-          id={dom_id}
-          data-group={group.id}
-          data-group-state={group.state}
-          class={state_class(group.state)}
-        >
-          <td class="min-w-32 break-all">
-            <.link navigate={~p"/groups/#{group.id}"} class="link">{group.id}</.link>
-          </td>
-          <td class="whitespace-nowrap">{group.state}</td>
-          <td class="whitespace-nowrap">{group.member_count}</td>
-          <td class="whitespace-nowrap" data-total-lag={group.total_lag}>{group.total_lag}</td>
-          <td class="whitespace-nowrap">
-            <button
-              :if={not group.expanded?}
-              type="button"
-              data-expand-group
-              class="btn btn-xs btn-soft"
-              phx-click="expand_group"
-              phx-value-group={group.id}
+    <div class="lg:flex-1 lg:min-h-0 rounded-box border border-base-300 bg-base-100 overflow-x-auto lg:overflow-auto">
+      <table class="table table-sm table-zebra text-sm w-full lg:table-pin-rows">
+        <thead class="max-sm:hidden">
+          <tr>
+            <th class="text-xs uppercase text-base-content/60">Group</th>
+            <th class="w-44 text-xs uppercase text-base-content/60">State</th>
+            <th class="w-24 text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+              Members
+            </th>
+            <th class="w-28 text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+              Total lag
+            </th>
+            <th class="text-xs uppercase text-base-content/60">Partitions</th>
+          </tr>
+        </thead>
+        <tbody id="groups" phx-update="stream">
+          <tr id="groups-empty" class="hidden only:table-row">
+            <td colspan="5" class="py-10 text-center text-base-content/60">
+              <.icon name="hero-inbox" class="size-6 mx-auto mb-2 opacity-60" />
+              <div>No consumer groups on this cluster.</div>
+            </td>
+          </tr>
+          <tr
+            :for={{dom_id, group} <- @streams.groups}
+            id={dom_id}
+            data-group={group.id}
+            data-group-state={group.state}
+            class={[
+              "hover:bg-base-200 max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3 max-sm:border-b max-sm:border-base-300",
+              state_class(group.state)
+            ]}
+          >
+            <td class="align-top max-sm:w-full">
+              <.link
+                navigate={~p"/groups/#{group.id}"}
+                class="link link-hover font-mono break-all"
+              >
+                {group.id}
+              </.link>
+            </td>
+            <td class="align-top max-sm:text-xs">
+              <span class={["badge badge-sm badge-soft", badge_class(group.state)]}>
+                {group.state}
+              </span>
+            </td>
+            <td class="align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs">
+              {group.member_count}
+            </td>
+            <td
+              data-total-lag={group.total_lag}
+              class={[
+                "align-top text-right tabular-nums whitespace-nowrap max-sm:text-xs",
+                lag_class(group.total_lag)
+              ]}
             >
-              Expand
-            </button>
-            <button
-              :if={group.expanded?}
-              type="button"
-              data-collapse-group
-              class="btn btn-xs btn-soft"
-              phx-click="collapse_group"
-              phx-value-group={group.id}
-            >
-              Collapse
-            </button>
-            <div :if={group.expanded?} class="overflow-x-auto mt-2">
-              <table data-group-partitions class="table table-zebra table-xs min-w-[420px]">
-                <tbody>
-                  <tr
-                    :for={p <- group.partitions}
-                    data-topic={p.topic}
-                    data-partition={p.partition}
-                  >
-                    <td class="min-w-24 max-w-xs break-all">{p.topic}</td>
-                    <td class="whitespace-nowrap">{p.partition}</td>
-                    <td class="whitespace-nowrap">{p.committed_offset}</td>
-                    <td class="whitespace-nowrap">{p.latest_offset}</td>
-                    <td class="whitespace-nowrap" data-lag={p.lag}>{p.lag}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </td>
-        </tr>
-      </tbody>
-    </table>
+              {group.total_lag}
+            </td>
+            <td class="align-top max-sm:w-full">
+              <button
+                :if={not group.expanded?}
+                type="button"
+                data-expand-group
+                class="btn btn-xs btn-ghost phx-click-loading:opacity-60"
+                phx-click="expand_group"
+                phx-value-group={group.id}
+              >
+                <.icon name="hero-chevron-down" class="size-3" /> Expand
+              </button>
+              <button
+                :if={group.expanded?}
+                type="button"
+                data-collapse-group
+                class="btn btn-xs btn-ghost phx-click-loading:opacity-60"
+                phx-click="collapse_group"
+                phx-value-group={group.id}
+              >
+                <.icon name="hero-chevron-up" class="size-3" /> Collapse
+              </button>
+              <div :if={group.expanded?} class="rounded-box bg-base-200 p-2 mt-2 overflow-x-auto">
+                <table data-group-partitions class="table table-xs w-full">
+                  <thead>
+                    <tr>
+                      <th class="text-xs uppercase text-base-content/60">Topic</th>
+                      <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+                        Partition
+                      </th>
+                      <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+                        Committed
+                      </th>
+                      <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+                        Latest
+                      </th>
+                      <th class="text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+                        Lag
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr
+                      :for={p <- group.partitions}
+                      data-topic={p.topic}
+                      data-partition={p.partition}
+                    >
+                      <td class="align-top font-mono break-all">{p.topic}</td>
+                      <td class="align-top text-right tabular-nums whitespace-nowrap">
+                        {p.partition}
+                      </td>
+                      <td class="align-top text-right tabular-nums whitespace-nowrap">
+                        {p.committed_offset}
+                      </td>
+                      <td class="align-top text-right tabular-nums whitespace-nowrap">
+                        {p.latest_offset}
+                      </td>
+                      <td
+                        data-lag={p.lag}
+                        class={[
+                          "align-top text-right tabular-nums whitespace-nowrap",
+                          lag_class(p.lag)
+                        ]}
+                      >
+                        {p.lag}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
 </Layouts.app>

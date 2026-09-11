@@ -1,84 +1,143 @@
 <Layouts.app flash={@flash} section={:topics}>
-  <.broker_error error={@broker_error} />
+  <div class="lg:flex-1 lg:flex lg:flex-col lg:min-h-0">
+    <header class="shrink-0 mb-4">
+      <div class="breadcrumbs text-sm text-base-content/60">
+        <ul>
+          <li><.link navigate={~p"/"} class="link link-hover">Topics</.link></li>
+          <li class="max-w-48 truncate">
+            <.link navigate={~p"/topics/#{@topic_name}"} class="link link-hover">
+              {@topic_name}
+            </.link>
+          </li>
+          <li>Partition {@partition}</li>
+        </ul>
+      </div>
+      <h1 class="text-xl max-sm:text-lg font-semibold break-all">
+        Topic {@topic_name}, partition {@partition}
+      </h1>
+    </header>
 
-  <h1 class="text-lg font-semibold break-all">Topic {@topic_name}, partition {@partition}</h1>
-
-  <div class="flex flex-wrap items-end gap-4 mb-4">
-    <form id="page-size-form" data-page-size-form phx-change="page_size" class="fieldset">
-      <label for="page_size" class="label">Page size</label>
-      <select id="page_size" name="page_size" class="select select-sm">
-        <option value="20" selected={@page_size == 20}>20</option>
-        <option value="50" selected={@page_size == 50}>50</option>
-      </select>
-    </form>
-
-    <div class="flex items-center gap-2">
-      <button type="button" data-tail-toggle class="btn btn-sm btn-soft" phx-click="toggle_tail">
-        {if @tailing?, do: "Stop tailing", else: "Start tailing"}
-      </button>
-      <span
-        data-tail={if @tailing?, do: "live", else: "off"}
-        class={["badge badge-sm", @tailing? && "badge-success", not @tailing? && "badge-ghost"]}
-      >
-        {if @tailing?, do: "live", else: "off"}
-      </span>
+    <div class="shrink-0 mb-4">
+      <.broker_error error={@broker_error} />
     </div>
-  </div>
 
-  <div class="overflow-x-auto">
-    <table class="table table-zebra min-w-[900px]">
-      <thead>
-        <tr>
-          <th>Offset</th>
-          <th>Key</th>
-          <th>Value</th>
-          <th>Timestamp</th>
-          <th>Headers</th>
-        </tr>
-      </thead>
-      <tbody id="messages" phx-update="stream">
-        <tr :for={{dom_id, message} <- @streams.messages} id={dom_id} data-offset={message.offset}>
-          <td class="whitespace-nowrap">{message.offset}</td>
-          <td class="min-w-32 max-w-xs">
-            <.message_key key={message.key} />
-          </td>
-          <td data-value class="max-w-sm">
-            <.message_value
-              value={message.value}
-              expanded?={message.expanded?}
-              offset={message.offset}
-            />
-          </td>
-          <td class="whitespace-nowrap">{message.timestamp}</td>
-          <td class="max-w-xs"><.message_headers headers={message.headers} /></td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
+    <div class="shrink-0 flex flex-wrap items-center justify-between gap-4 mb-4">
+      <form
+        id="page-size-form"
+        data-page-size-form
+        phx-change="page_size"
+        class="flex items-center gap-2"
+      >
+        <label for="page_size" class="label text-xs">Page size</label>
+        <select id="page_size" name="page_size" class="select select-sm w-20">
+          <option value="20" selected={@page_size == 20}>20</option>
+          <option value="50" selected={@page_size == 50}>50</option>
+        </select>
+        <span class="loading loading-spinner loading-xs hidden phx-change-loading:inline-block" />
+      </form>
 
-  <div class="flex items-center gap-4 mt-4">
-    <.link
-      :if={@earliest != nil and @offset > @earliest}
-      data-prev-page
-      class="btn btn-sm btn-soft"
-      patch={
-        message_path(
-          @topic_name,
-          @partition,
-          max(@earliest, @offset - @page_size),
-          @page_size
-        )
-      }
-    >
-      Previous page
-    </.link>
-    <.link
-      :if={@latest != nil and @offset + @page_size < @latest}
-      data-next-page
-      class="btn btn-sm btn-soft"
-      patch={message_path(@topic_name, @partition, @offset + @page_size, @page_size)}
-    >
-      Next page
-    </.link>
+      <div class="flex items-center gap-2">
+        <button
+          type="button"
+          data-tail-toggle
+          class={[
+            "btn btn-sm phx-click-loading:opacity-60",
+            @tailing? && "btn-soft btn-error",
+            not @tailing? && "btn-outline btn-success"
+          ]}
+          phx-click="toggle_tail"
+        >
+          <.icon name={if @tailing?, do: "hero-stop", else: "hero-play"} class="size-4" />
+          {if @tailing?, do: "Stop tailing", else: "Start tailing"}
+        </button>
+        <span
+          data-tail={if @tailing?, do: "live", else: "off"}
+          class={["badge badge-sm", @tailing? && "badge-success", not @tailing? && "badge-ghost"]}
+        >
+          <span :if={@tailing?} class="status status-success animate-pulse" />
+          {if @tailing?, do: "live", else: "off"}
+        </span>
+      </div>
+    </div>
+
+    <div class="lg:flex-1 lg:min-h-0 rounded-box border border-base-300 bg-base-100 overflow-x-auto lg:overflow-auto">
+      <table class="table table-sm table-zebra text-sm w-full lg:table-pin-rows">
+        <thead class="max-sm:hidden">
+          <tr>
+            <th class="w-16 text-right tabular-nums whitespace-nowrap text-xs uppercase text-base-content/60">
+              Offset
+            </th>
+            <th class="w-44 text-xs uppercase text-base-content/60">Key</th>
+            <th class="min-w-[40%] text-xs uppercase text-base-content/60">Value</th>
+            <th class="w-44 whitespace-nowrap text-xs uppercase text-base-content/60">
+              Timestamp
+            </th>
+            <th class="w-48 text-xs uppercase text-base-content/60">Headers</th>
+          </tr>
+        </thead>
+        <tbody id="messages" phx-update="stream">
+          <tr id="messages-empty" class="hidden only:table-row">
+            <td colspan="5" class="py-10 text-center text-base-content/60">
+              <.icon name="hero-inbox" class="size-6 mx-auto mb-2 opacity-60" />
+              <div>No messages at this offset.</div>
+            </td>
+          </tr>
+          <tr
+            :for={{dom_id, message} <- @streams.messages}
+            id={dom_id}
+            data-offset={message.offset}
+            class="hover:bg-base-200 max-sm:flex max-sm:flex-wrap max-sm:gap-x-3 max-sm:gap-y-1 max-sm:py-3 max-sm:border-b max-sm:border-base-300"
+          >
+            <td class="align-top font-mono font-semibold text-right tabular-nums whitespace-nowrap max-sm:order-1 max-sm:text-left">
+              {message.offset}
+            </td>
+            <td class="align-top text-xs font-mono max-sm:order-3 max-sm:w-full">
+              <.message_key key={message.key} />
+            </td>
+            <td data-value class="align-top text-xs font-mono max-sm:order-4 max-sm:w-full">
+              <.message_value
+                value={message.value}
+                expanded?={message.expanded?}
+                offset={message.offset}
+              />
+            </td>
+            <td class="align-top whitespace-nowrap text-xs text-base-content/60 max-sm:order-2">
+              {message.timestamp}
+            </td>
+            <td class="align-top text-xs font-mono max-sm:order-5 max-sm:w-full">
+              <.message_headers headers={message.headers} />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="shrink-0 flex items-center gap-4 border-t border-base-300 pt-3 mt-4">
+      <div class="join">
+        <.link
+          :if={@earliest != nil and @offset > @earliest}
+          data-prev-page
+          class="join-item btn btn-sm btn-ghost phx-click-loading:opacity-60"
+          patch={
+            message_path(
+              @topic_name,
+              @partition,
+              max(@earliest, @offset - @page_size),
+              @page_size
+            )
+          }
+        >
+          <.icon name="hero-chevron-left" class="size-4" /> Previous page
+        </.link>
+        <.link
+          :if={@latest != nil and @offset + @page_size < @latest}
+          data-next-page
+          class="join-item btn btn-sm btn-ghost phx-click-loading:opacity-60"
+          patch={message_path(@topic_name, @partition, @offset + @page_size, @page_size)}
+        >
+          Next page <.icon name="hero-chevron-right" class="size-4" />
+        </.link>
+      </div>
+    </div>
   </div>
 </Layouts.app>
