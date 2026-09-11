@@ -617,12 +617,44 @@ defmodule KafkaManager.Kafka.Client do
     with {:ok, metadata} <- fetch_metadata(config, topics) do
       leaders = leader_map(metadata)
       brokers = broker_map(metadata)
-      grouped = Enum.group_by(partitions, &Map.fetch!(leaders, &1))
 
-      with {:ok, offsets} <- list_offsets_from_leaders(config, brokers, grouped, which) do
+      with {:ok, grouped} <- group_partitions_by_leader(config, leaders, partitions),
+           {:ok, offsets} <- list_offsets_from_leaders(config, brokers, grouped, which) do
         {:ok, normalize_timestamp_offsets(offsets, which)}
       end
     end
+  end
+
+  # A partition missing from `leaders` (e.g. it moved, or was dropped,
+  # between `metadata/1` and this call) would raise via `Map.fetch!/2`; this
+  # is a readable `%BrokerError{}` instead, the same crash class the
+  # log-dirs fix removed (fix run item 6). Exposed (`@doc false`) so the
+  # translation is unit-testable with a fabricated `leaders` map: the live
+  # single-broker Redpanda in dev can never produce a partition missing from
+  # its own metadata's leader list.
+  @doc false
+  @spec group_partitions_by_leader(Config.t(), map(), [{String.t(), non_neg_integer()}]) ::
+          {:ok, map()} | {:error, BrokerError.t()}
+  def group_partitions_by_leader(config, leaders, partitions) do
+    Enum.reduce_while(partitions, {:ok, %{}}, fn partition, {:ok, acc} ->
+      case Map.fetch(leaders, partition) do
+        {:ok, leader_id} ->
+          {:cont, {:ok, Map.update(acc, leader_id, [partition], &[partition | &1])}}
+
+        :error ->
+          {:halt, {:error, missing_partition_leader_error(config, partition)}}
+      end
+    end)
+  end
+
+  defp missing_partition_leader_error(config, {topic, partition}) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :missing_partition_leader,
+      message:
+        "No leader was returned for #{topic}/#{partition}. It may have changed " <>
+          "since the topic's metadata was fetched."
+    }
   end
 
   # A `-1` offset (1.4, "no message at or after this timestamp") only means
@@ -644,9 +676,40 @@ defmodule KafkaManager.Kafka.Client do
     end)
   end
 
-  defp list_offsets_from_leader(config, brokers, leader_id, partitions, which) do
-    endpoint = Map.fetch!(brokers, leader_id)
+  # A leader id missing from `brokers` (e.g. it went offline between the
+  # partition metadata and this request) would raise via `Map.fetch!/2`;
+  # this is a readable `%BrokerError{}` instead, the same crash class the
+  # log-dirs fix removed (fix run item 6). Exposed (`@doc false`) so the
+  # translation is unit-testable with a fabricated `brokers` map.
+  @doc false
+  @spec list_offsets_from_leader(
+          Config.t(),
+          map(),
+          integer(),
+          [{String.t(), non_neg_integer()}],
+          :earliest | :latest | {:timestamp, integer()}
+        ) :: {:ok, map()} | {:error, BrokerError.t()}
+  def list_offsets_from_leader(config, brokers, leader_id, partitions, which) do
+    case Map.fetch(brokers, leader_id) do
+      {:ok, endpoint} ->
+        fetch_list_offsets_from_leader(config, endpoint, partitions, which)
 
+      :error ->
+        {:error, missing_leader_broker_error(config, leader_id)}
+    end
+  end
+
+  defp missing_leader_broker_error(config, leader_id) do
+    %BrokerError{
+      address: Config.address(config),
+      reason: :missing_broker,
+      message:
+        "Broker #{leader_id} is the leader for a requested partition but is missing from " <>
+          "the cluster metadata. It may have gone offline; try again."
+    }
+  end
+
+  defp fetch_list_offsets_from_leader(config, endpoint, partitions, which) do
     case :kpro.connect(endpoint, conn_config(config)) do
       {:ok, connection} ->
         try do

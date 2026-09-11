@@ -355,6 +355,16 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   # `maybe_arm_tail/2` sets it once a page-1 read completes.
   defp toggle_tail(socket, false), do: stop_tail(socket)
 
+  # A currently rejected filter must never tail (fix run item 4): with no
+  # valid filter, `load/5` never runs a read, so `tail_from` could never be
+  # armed and the indicator would be stuck showing "live" forever. Refusing
+  # the toggle outright, instead of falling through to the catch-all clause
+  # below, keeps `tailing?` false and the indicator correctly off.
+  defp toggle_tail(%{assigns: %{filter_errors: filter_errors}} = socket, true)
+       when filter_errors != %{} do
+    socket
+  end
+
   # `scan_state: :complete` is required, not just a non-`nil` `page_high`
   # (docs/PLAN.md 4.10): `start_scan/6` clears `page_high` before a scan
   # runs, but the explicit guard also protects against a future read path
@@ -388,7 +398,15 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     assign(socket, tailing?: true, tail_from: nil, tail_ref: nil)
   end
 
-  defp schedule_tail, do: Process.send_after(self(), :tail_tick, @tail_interval_ms)
+  defp schedule_tail, do: Process.send_after(self(), :tail_tick, tail_interval_ms())
+
+  # Configurable, not just `@tail_interval_ms`, so a test can set it far
+  # longer than its own run time (fix run item 3): otherwise a real,
+  # correctly-timed tick firing mid-test can mask a bug in what a tick was
+  # armed from, by quietly catching a stale value up to the right one before
+  # the test gets to look at it.
+  defp tail_interval_ms,
+    do: Application.get_env(:kafka_manager, :data_tail_interval_ms, @tail_interval_ms)
 
   defp cancel_tail(nil), do: :ok
   defp cancel_tail(ref), do: Process.cancel_timer(ref)

@@ -5,7 +5,16 @@ defmodule KafkaManagerWeb.TopicDataTailArmingTest do
   differently-filtered read — it must wait for the running scan's own
   page-1 read to complete and arm from that read's high-water mark
   (docs/PLAN.md 4.10). A rejected filter must not tail at all, and the page
-  must show the tail as off.
+  must show the tail as off (fix run, item 4), whether the filter is
+  rejected while already tailing or the toggle is clicked while a rejected
+  filter is already on screen.
+
+  The first test sets `:data_tail_interval_ms` far longer than the test
+  itself can run (fix run item 3): otherwise, if the LiveView's own 1-second
+  timer happened to fire between the scan completing and the assertion
+  below, a stale `tail_from` would catch itself up to the correct value on
+  that tick, before this test ever got a chance to see it wrong, and the
+  test would pass whether or not the arming logic was correct.
   """
 
   use KafkaManagerWeb.ConnCase, async: false
@@ -13,10 +22,14 @@ defmodule KafkaManagerWeb.TopicDataTailArmingTest do
   import Phoenix.LiveViewTest
 
   alias KafkaManager.BrokerHelpers
+  alias KafkaManager.LiveViewHelpers
 
   test "toggling tailing on mid-scan arms tail_from from the scan's own completed read", %{
     conn: conn
   } do
+    Application.put_env(:kafka_manager, :data_tail_interval_ms, 3_600_000)
+    on_exit(fn -> Application.delete_env(:kafka_manager, :data_tail_interval_ms) end)
+
     u = "midscan#{System.system_time(:nanosecond)}"
 
     assert {:ok, %{partition: 0}} =
@@ -48,10 +61,11 @@ defmodule KafkaManagerWeb.TopicDataTailArmingTest do
 
     # `tail_from` must equal the completed filtered scan's own `page_high`,
     # not the stale value captured before "gap" was produced. There is no
-    # public accessor for LiveView assigns, so this reads the socket
-    # directly — the only way to observe the exact offset map without
-    # relying on further timing.
-    assigns = :sys.get_state(view.pid).socket.assigns
+    # public accessor for LiveView assigns, so this goes through a
+    # documented test helper instead of an ad hoc `:sys.get_state/1` call —
+    # the only way to observe the exact offset map without relying on
+    # further timing, and with the timer disarmed above, deterministic.
+    assigns = LiveViewHelpers.assigns(view.pid)
     assert assigns.tail_from == assigns.page_high
   end
 
@@ -68,6 +82,26 @@ defmodule KafkaManagerWeb.TopicDataTailArmingTest do
       |> render_submit()
 
     assert html =~ ~s(data-filter-error="key")
+    assert html =~ ~s(data-tail="off")
+    refute html =~ ~s(data-tail="live")
+  end
+
+  test "toggling tail on while the current filter is already rejected never arms it " <>
+         "(fix run, item 4)",
+       %{conn: conn} do
+    {:ok, view, _html} = live(conn, ~p"/topics/orders")
+    render_async(view, 10_000)
+
+    html =
+      view
+      |> form("#filter-form", %{"filter" => %{"key" => "order-(", "key_mode" => "regex"}})
+      |> render_submit()
+
+    assert html =~ ~s(data-filter-error="key")
+    refute html =~ ~s(data-tail="live")
+
+    html = view |> element("[data-tail-toggle]") |> render_click()
+
     assert html =~ ~s(data-tail="off")
     refute html =~ ~s(data-tail="live")
   end

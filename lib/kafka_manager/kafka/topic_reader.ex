@@ -47,7 +47,12 @@ defmodule KafkaManager.Kafka.TopicReader do
       direction = direction(cursor)
       # A filtered scan reads in bigger chunks than an unfiltered page, since
       # most chunks will not fill the page (docs/PLAN.md 2.4, "Refill").
-      chunk = if Filter.active?(filter), do: @scan_chunk, else: page_size
+      # `:scan_chunk` overrides this; it is test-only (fix run item 2), so a
+      # scan can be forced across several refill rounds without depending on
+      # a huge topic, and it is never passed by `Kafka.read_topic/2` or any
+      # LiveView.
+      default_chunk = if Filter.active?(filter), do: @scan_chunk, else: page_size
+      chunk = Keyword.get(opts, :scan_chunk, default_chunk)
 
       ctx = %{
         floor: floor,
@@ -317,28 +322,48 @@ defmodule KafkaManager.Kafka.TopicReader do
   # first error or the first backtracking-limit halt: the merge state must
   # not silently drop the partitions after it (docs/PLAN.md 2.5). The scan
   # budget (`max_scanned`) is a total across every partition, not per
-  # partition: `scanned` is the count already spent before this round, and
-  # each partition's chunk is clamped to what is left of it, stopping the
-  # round early once the budget runs out rather than reading a full chunk
-  # from every partition regardless of `scanned`.
+  # partition, and it is split fairly across every partition that needs a
+  # refill this round rather than spent on the first ones in order (fix run
+  # item 1). Refilling partitions in a fixed order until the budget ran out
+  # let the first ones exhaust it, leaving the rest with a permanently empty
+  # buffer: `ready_to_emit?/1` requires every non-exhausted partition to hold
+  # a buffered message, so nothing was ever emitted and the caller's cursor
+  # never advanced. Giving every partition needing a refill a fair share of
+  # what is left, with a floor of one message, keeps every one of them
+  # contributing to the merge, so a tick always emits something when there is
+  # anything left to read.
   defp refill_all(config, topic, ctx, state, scanned) do
     needing = for {p, %{buffer: [], exhausted?: false}} <- state, do: p
 
-    Enum.reduce_while(needing, {:ok, state, 0, [], nil}, fn p,
-                                                            {:ok, acc_state, added, matched, nil} ->
-      refill_step(config, topic, ctx, p, acc_state, added, matched, scanned)
-    end)
-  end
+    case needing do
+      [] ->
+        {:ok, state, 0, [], nil}
 
-  defp refill_step(config, topic, ctx, p, acc_state, added, matched, scanned) do
-    case remaining_budget(ctx, scanned + added) do
-      0 -> {:halt, {:ok, acc_state, added, matched, nil}}
-      remaining -> refill_one(config, topic, p, ctx, acc_state, remaining, added, matched)
+      _ ->
+        chunk = fair_chunk(ctx, scanned, length(needing))
+
+        Enum.reduce_while(needing, {:ok, state, 0, [], nil}, fn p,
+                                                                {:ok, acc_state, added, matched,
+                                                                 nil} ->
+          refill_one(config, topic, p, ctx, acc_state, chunk, added, matched)
+        end)
     end
   end
 
-  defp refill_one(config, topic, p, ctx, acc_state, remaining, added, matched) do
-    case refill_partition(config, topic, p, ctx, acc_state, remaining) do
+  # With no budget (`:infinity`) every partition reads its full `ctx.chunk`,
+  # as before: there is no starvation risk to guard against. With a finite
+  # budget, what is left of it this round is split evenly across every
+  # partition that needs a refill, floored at one message each so that a
+  # partition is never left out entirely.
+  defp fair_chunk(%{max_scanned: :infinity, chunk: chunk}, _scanned, _n), do: chunk
+
+  defp fair_chunk(ctx, scanned, n) do
+    remaining = remaining_budget(ctx, scanned)
+    min(ctx.chunk, max(1, div(remaining, n)))
+  end
+
+  defp refill_one(config, topic, p, ctx, acc_state, chunk, added, matched) do
+    case refill_partition(config, topic, p, ctx, acc_state, chunk) do
       {:ok, new_state, count, new_matched, nil} ->
         {:cont, {:ok, new_state, added + count, matched ++ new_matched, nil}}
 
@@ -353,9 +378,8 @@ defmodule KafkaManager.Kafka.TopicReader do
   defp remaining_budget(%{max_scanned: :infinity}, _scanned), do: :infinity
   defp remaining_budget(%{max_scanned: max_scanned}, scanned), do: max(max_scanned - scanned, 0)
 
-  defp refill_partition(config, topic, p, ctx, state, remaining) do
+  defp refill_partition(config, topic, p, ctx, state, chunk) do
     %{next: next} = Map.fetch!(state, p)
-    chunk = clamp_chunk(ctx.chunk, remaining)
     {lo, hi} = chunk_bounds(next, ctx.floor[p], ctx.ceiling[p], ctx.direction, chunk)
 
     case Messages.read_range(config, topic, p, lo, hi) do
@@ -394,9 +418,6 @@ defmodule KafkaManager.Kafka.TopicReader do
       {acc, scanned} -> {Enum.reverse(acc), scanned, nil}
     end
   end
-
-  defp clamp_chunk(chunk, :infinity), do: chunk
-  defp clamp_chunk(chunk, remaining), do: min(chunk, remaining)
 
   defp chunk_bounds(next, floor, _ceiling, :backward, chunk), do: {max(floor, next - chunk), next}
 
