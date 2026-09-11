@@ -66,6 +66,9 @@ defmodule KafkaManagerWeb.TopicDataTailArmingTest do
     # the only way to observe the exact offset map without relying on
     # further timing, and with the timer disarmed above, deterministic.
     assigns = LiveViewHelpers.assigns(view.pid)
+    # `tail_from == page_high` would pass vacuously if both were `nil`
+    # (fix run item 4), so pin `tail_from` to an actual offset map too.
+    refute is_nil(assigns.tail_from)
     assert assigns.tail_from == assigns.page_high
   end
 

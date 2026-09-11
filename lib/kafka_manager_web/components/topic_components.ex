@@ -88,8 +88,24 @@ defmodule KafkaManagerWeb.TopicComponents do
               this.scroll()
             },
             scroll() {
+              // Scroll only the tab strip horizontally (fix run item 5):
+              // `scrollIntoView` can also move the surrounding page
+              // vertically, which this hook must never do. Compute the
+              // active tab's position within the strip and set the strip's
+              // own `scrollLeft` directly instead.
               const active = this.el.querySelector("[aria-current='page']")
-              if (active) active.scrollIntoView({block: "nearest", inline: "nearest"})
+              if (!active) return
+
+              const stripLeft = this.el.scrollLeft
+              const stripWidth = this.el.clientWidth
+              const tabLeft = active.offsetLeft
+              const tabRight = tabLeft + active.offsetWidth
+
+              if (tabLeft < stripLeft) {
+                this.el.scrollLeft = tabLeft
+              } else if (tabRight > stripLeft + stripWidth) {
+                this.el.scrollLeft = tabRight - stripWidth
+              }
             }
           }
         </script>

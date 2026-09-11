@@ -141,6 +141,16 @@ defmodule KafkaManager.Kafka.TopicReaderTest do
     end
   end
 
+  describe "scan_chunk validation (fix run, item 3)" do
+    test "a non-positive scan_chunk raises ArgumentError instead of looping forever" do
+      config = KafkaManager.Kafka.config()
+
+      assert_raise ArgumentError, ~r/scan_chunk must be a positive integer/, fn ->
+        TopicReader.read(config, "orders", filter: Filter.none(), scan_chunk: 0)
+      end
+    end
+  end
+
   describe "the tail budget guarantees progress (fix run, item 1)" do
     test "three ticks from offset 0 each check at most 500 messages, emit at least " <>
            "one, and move the cursor" do
@@ -160,6 +170,49 @@ defmodule KafkaManager.Kafka.TopicReaderTest do
       {_cursor3, page3} = tail_tick(config, cursor2)
       assert page3.scanned <= 500
       assert page3.messages != []
+
+      # Strengthened (fix run item 2): concatenate the three ticks in tick
+      # order, each un-reversed back to chronological (oldest-first) order,
+      # and compare against a single untruncated forward read of the same
+      # range. An implementation that skipped a buffered-but-unemitted
+      # message between ticks, or emitted one out of merge order, would still
+      # satisfy the three loose assertions above (something non-empty, under
+      # budget, cursor moved) but would fail this one.
+      emitted =
+        Enum.reverse(page1.messages) ++
+          Enum.reverse(page2.messages) ++ Enum.reverse(page3.messages)
+
+      {:ok, full} =
+        TopicReader.read(config, "orders",
+          cursor: cursor0,
+          page_size: 100_000,
+          filter: Filter.none(),
+          max_scanned: :infinity
+        )
+
+      assert Enum.reverse(full.messages) == emitted
+    end
+
+    test "the total scanned in one tick never exceeds the budget, even when a filter " <>
+           "forces a second refill round on a multi-partition topic (fix run, item 1)" do
+      config = KafkaManager.Kafka.config()
+      # `orders` has 6 partitions of 100 messages each. A filter that matches
+      # nothing forces every partition to stay in `needing` after round 1
+      # (docs/PLAN.md 2.4, "Refill"), which is exactly the shape that made
+      # `fair_chunk`'s old floor-of-one-per-partition rule push a second
+      # round's total past the 500 cap (docs/PLAN.md 4.10).
+      {:ok, filter} =
+        Filter.parse(%{"key" => "^does-not-exist-in-orders$", "key_mode" => "regex"})
+
+      {:ok, page} =
+        TopicReader.read(config, "orders",
+          cursor: nil,
+          page_size: 10_000,
+          filter: filter,
+          max_scanned: 500
+        )
+
+      assert page.scanned <= 500
     end
   end
 

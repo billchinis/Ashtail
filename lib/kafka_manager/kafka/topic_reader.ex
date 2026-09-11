@@ -47,12 +47,16 @@ defmodule KafkaManager.Kafka.TopicReader do
       direction = direction(cursor)
       # A filtered scan reads in bigger chunks than an unfiltered page, since
       # most chunks will not fill the page (docs/PLAN.md 2.4, "Refill").
-      # `:scan_chunk` overrides this; it is test-only (fix run item 2), so a
-      # scan can be forced across several refill rounds without depending on
-      # a huge topic, and it is never passed by `Kafka.read_topic/2` or any
-      # LiveView.
+      # `:scan_chunk` overrides this; it is test-only, so a scan can be
+      # forced across several refill rounds without depending on a huge
+      # topic. `Kafka.read_topic/2` forwards every option through unchanged
+      # (fix run item 3), so `:scan_chunk` **is** reachable from outside this
+      # module even though no LiveView ever supplies it — it is guarded
+      # below rather than trusted, because a non-positive value would make
+      # `chunk_bounds/5` produce an empty or backward range and the refill
+      # loop would never advance `next`, looping forever.
       default_chunk = if Filter.active?(filter), do: @scan_chunk, else: page_size
-      chunk = Keyword.get(opts, :scan_chunk, default_chunk)
+      chunk = validate_scan_chunk!(Keyword.get(opts, :scan_chunk, default_chunk))
 
       ctx = %{
         floor: floor,
@@ -67,6 +71,15 @@ defmodule KafkaManager.Kafka.TopicReader do
 
       run(config, topic, partition_ids, cursor, ctx)
     end
+  end
+
+  # Raised at the boundary, never as a broker failure: a non-positive or
+  # non-integer `:scan_chunk` is a programming error in the caller, not
+  # something the broker can report (fix run item 3).
+  defp validate_scan_chunk!(chunk) when is_integer(chunk) and chunk > 0, do: chunk
+
+  defp validate_scan_chunk!(chunk) do
+    raise ArgumentError, "scan_chunk must be a positive integer, got: #{inspect(chunk)}"
   end
 
   # `floor`/`ceiling` narrow to `filter.from`/`filter.to` when set
@@ -231,15 +244,30 @@ defmodule KafkaManager.Kafka.TopicReader do
       length(page) >= ctx.page_size -> stopped(state, page, scanned)
       all_exhausted_empty?(state) -> stopped(state, page, scanned)
       ready_to_emit?(state) -> emit(config, topic, ctx, state, page, scanned, pending)
-      budget_spent?(ctx, scanned) -> stopped(state, page, scanned)
+      budget_exhausted?(ctx, scanned, state) -> stopped(state, page, scanned)
       true -> refill_and_continue(config, topic, ctx, state, page, scanned, pending)
     end
   end
 
   defp stopped(state, page, scanned), do: {:ok, state, Enum.reverse(page), scanned, nil}
 
-  defp budget_spent?(%{max_scanned: :infinity}, _scanned), do: false
-  defp budget_spent?(%{max_scanned: max_scanned}, scanned), do: scanned >= max_scanned
+  # The tick ends the moment the remaining budget cannot give every partition
+  # that still needs a refill at least one message (fix run item 1): a round
+  # that must give each of `n` needing partitions >= 1 message would
+  # otherwise push the total scanned past `max_scanned` (as `fair_chunk`
+  # flooring every share at 1 used to do). The total scanned per tick is
+  # therefore capped at `max_scanned`, with exactly one exception: when more
+  # than `max_scanned` scoped partitions still need a refill, `needing` alone
+  # already exceeds the cap and this tick still has to give each of them at
+  # least one message to guarantee progress (docs/PLAN.md 4.10) — that is the
+  # only case where the total can exceed `max_scanned`, and it only arises
+  # when the caller passes a budget smaller than the partition count.
+  defp budget_exhausted?(%{max_scanned: :infinity}, _scanned, _state), do: false
+
+  defp budget_exhausted?(ctx, scanned, state) do
+    needing = for {p, %{buffer: [], exhausted?: false}} <- state, do: p
+    needing != [] and remaining_budget(ctx, scanned) < length(needing)
+  end
 
   defp emit(config, topic, ctx, state, page, scanned, pending) do
     {msg, state2} = pop_best(state, ctx.direction)
@@ -331,7 +359,10 @@ defmodule KafkaManager.Kafka.TopicReader do
   # never advanced. Giving every partition needing a refill a fair share of
   # what is left, with a floor of one message, keeps every one of them
   # contributing to the merge, so a tick always emits something when there is
-  # anything left to read.
+  # anything left to read. `step/6` only ever reaches this function once
+  # `budget_exhausted?/3` has confirmed the remaining budget can give every
+  # `needing` partition its floor of one message, so the floor here can never
+  # push the round's total scanned past `max_scanned` (fix run item 1).
   defp refill_all(config, topic, ctx, state, scanned) do
     needing = for {p, %{buffer: [], exhausted?: false}} <- state, do: p
 

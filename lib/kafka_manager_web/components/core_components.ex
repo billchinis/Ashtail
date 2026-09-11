@@ -450,14 +450,24 @@ defmodule KafkaManagerWeb.CoreComponents do
             <td
               :for={{col, i} <- Enum.with_index(@col)}
               phx-click={@row_click && @row_click.(row)}
-              class={[
-                "py-3 px-4 max-sm:p-0 align-top max-sm:border-b-0",
-                i == 0 && "max-sm:w-full",
-                i > 0 && "max-sm:text-xs",
-                @row_click && "hover:cursor-pointer",
-                col[:numeric] && "text-right tabular-nums whitespace-nowrap",
-                col[:class]
-              ]}
+              class={
+                [
+                  "py-3 px-4 max-sm:p-0 align-top max-sm:border-b-0",
+                  i == 0 && "max-sm:w-full",
+                  # A stacked row's line-2 columns render as `<span
+                  # class="sm:hidden">Label </span>value`; when `value` is a
+                  # bigger numeral (docs/PLAN.md "Shared pieces", `lag/1`
+                  # size: :large), inline baseline alignment pulls the label
+                  # down to the numeral's baseline instead of its top (fix run
+                  # item 6). `max-sm:flex max-sm:items-start` pins every
+                  # line-2 column's content to a shared top edge regardless of
+                  # its own font size.
+                  i > 0 && "max-sm:text-xs max-sm:flex max-sm:items-start max-sm:gap-1",
+                  @row_click && "hover:cursor-pointer",
+                  col[:numeric] && "text-right tabular-nums whitespace-nowrap",
+                  col[:class]
+                ]
+              }
             >
               {render_slot(col, @row_item.(row))}
             </td>
