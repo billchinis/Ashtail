@@ -1,11 +1,12 @@
 defmodule KafkaManagerWeb.TopicDataTimeFilterTest do
   @moduledoc """
-  AC-20: the Data sub-menu filters by a custom or preset time range, both
-  ends inclusive to the millisecond, combined with a header filter, and
-  keeps every applied filter in the URL (docs/PLAN.md 2.4, 2.5, 4.9). The
-  custom range's bounds are read from the broker at test time, through the
-  app's own rendered `data-timestamp` values, never hard-coded: rpk cannot
-  set a record timestamp (docs/PLAN.md 7.1).
+  AC-20: the Data sub-menu filters by a from/to time range, both ends
+  inclusive to the millisecond, combined with a header filter, and keeps
+  every applied filter in the URL (docs/PLAN.md 2.4, 2.5, 4.9). The
+  range's bounds are read from the broker at test time, through the app's
+  own rendered `data-timestamp` values, never hard-coded: rpk cannot set a
+  record timestamp (docs/PLAN.md 7.1). The filter bar offers no time-range
+  preset control, only From and To.
   """
 
   use KafkaManagerWeb.ConnCase, async: true
@@ -25,9 +26,7 @@ defmodule KafkaManagerWeb.TopicDataTimeFilterTest do
     "to" => ""
   }
 
-  @presets [{"15m", 900}, {"1h", 3_600}, {"24h", 86_400}, {"7d", 604_800}]
-
-  test "custom range and a header combine, survive the URL, and presets fill from/to", %{
+  test "from/to range and a header combine, survive the URL, with no preset control", %{
     conn: conn
   } do
     {:ok, view, html} = live(conn, ~p"/topics/notifications")
@@ -62,30 +61,7 @@ defmodule KafkaManagerWeb.TopicDataTimeFilterTest do
     assert filter_field(html2, "header") == "channel"
     assert filter_field(html2, "header_value") == "sms"
 
-    for {preset, seconds} <- @presets do
-      changed =
-        view2
-        |> element("#filter-form")
-        |> render_change(%{"_target" => ["filter", "range"], "filter" => %{"range" => preset}})
-
-      preset_from = filter_field(changed, "from")
-      preset_to = filter_field(changed, "to")
-
-      assert String.ends_with?(preset_from, "Z")
-      assert String.ends_with?(preset_to, "Z")
-
-      {:ok, from_dt, from_offset} = DateTime.from_iso8601(preset_from)
-      {:ok, to_dt, to_offset} = DateTime.from_iso8601(preset_to)
-      assert from_offset == 0
-      assert to_offset == 0
-
-      now_ms = DateTime.utc_now() |> DateTime.to_unix(:millisecond)
-      to_ms = DateTime.to_unix(to_dt, :millisecond)
-      from_ms = DateTime.to_unix(from_dt, :millisecond)
-
-      assert_in_delta now_ms, to_ms, 10_000
-      assert to_ms - from_ms == seconds * 1000
-    end
+    refute html2 =~ ~s(name="filter[range]")
 
     html = view2 |> element("#filter-form button[phx-click='clear']") |> render_click()
     assert notifications(html) == Enum.to_list(48..1//-1)
