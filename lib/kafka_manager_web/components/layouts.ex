@@ -40,7 +40,7 @@ defmodule KafkaManagerWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <div class="lg:flex lg:h-screen bg-base-100 text-base-content">
+    <div class="lg:flex lg:min-h-screen bg-base-100 text-base-content">
       <aside class="hidden lg:flex lg:flex-col lg:w-56 lg:shrink-0 bg-base-200 border-r border-base-300 lg:sticky lg:top-0 lg:h-screen">
         <div class="h-14 px-4 flex items-center gap-2">
           <.icon name="hero-circle-stack" class="size-5" />
@@ -161,6 +161,7 @@ defmodule KafkaManagerWeb.Layouts do
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
+        aria-label="System theme"
       >
         <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
@@ -169,6 +170,7 @@ defmodule KafkaManagerWeb.Layouts do
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
+        aria-label="Light theme"
       >
         <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>
@@ -177,6 +179,7 @@ defmodule KafkaManagerWeb.Layouts do
         class="flex p-2 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
+        aria-label="Dark theme"
       >
         <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
       </button>

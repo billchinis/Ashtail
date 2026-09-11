@@ -89,6 +89,8 @@
           <legend class="fieldset-legend">Headers</legend>
           <div
             :for={id <- @header_rows}
+            :key={id}
+            id={"header-row-#{id}"}
             data-header-row={id}
             class="grid grid-cols-[1fr_1fr_auto] gap-2 items-center mb-2 max-sm:grid-cols-1"
           >
@@ -109,6 +111,7 @@
             <button
               type="button"
               data-remove-header
+              disabled={length(@header_rows) == 1}
               class="btn btn-xs btn-ghost max-sm:justify-self-end"
               phx-click="remove_header"
               phx-value-row={id}

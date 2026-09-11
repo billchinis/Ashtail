@@ -5,7 +5,10 @@
         <ul>
           <li><.link navigate={~p"/"} class="link link-hover">Topics</.link></li>
           <li>
-            <.link navigate={~p"/topics/#{@topic_name}"} class="max-w-48 truncate link link-hover">
+            <.link
+              navigate={~p"/topics/#{@topic_name}"}
+              class="max-w-48 truncate link link-hover inline-block align-bottom"
+            >
               {@topic_name}
             </.link>
           </li>
@@ -104,7 +107,7 @@
                 offset={message.offset}
               />
             </td>
-            <td class="align-top whitespace-nowrap text-xs text-base-content/60 max-sm:order-2 max-sm:border-b-0">
+            <td class="align-top whitespace-nowrap text-xs font-mono text-base-content/60 max-sm:order-2 max-sm:border-b-0">
               {message.timestamp}
             </td>
             <td class="align-top text-xs font-mono max-sm:order-5 max-sm:w-full max-sm:border-b-0">

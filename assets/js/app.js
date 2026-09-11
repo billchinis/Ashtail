@@ -33,10 +33,23 @@ const liveSocket = new LiveSocket("/live", Socket, {
 })
 
 // Show progress bar on live navigation and form submits, in the theme's
-// primary colour (docs/DESIGN.md) rather than a hardcoded blue.
-const primaryColor = getComputedStyle(document.documentElement).getPropertyValue("--color-primary").trim() || "#29d"
-topbar.config({barColors: {0: primaryColor}, shadowColor: "rgba(0, 0, 0, .3)"})
-window.addEventListener("phx:page-loading-start", _info => topbar.show(300))
+// primary colour (docs/DESIGN.md) rather than a hardcoded blue. The colour
+// is re-read on every use (not cached at load) so it stays current after a
+// theme toggle, and is validated because it may be an oklch() value that
+// some browsers' canvas gradients cannot parse, which would throw on every
+// navigation.
+const FALLBACK_TOPBAR_COLOR = "#29d"
+
+const topbarColor = () => {
+  const value = getComputedStyle(document.documentElement).getPropertyValue("--color-primary").trim()
+  return value && CSS.supports("color", value) ? value : FALLBACK_TOPBAR_COLOR
+}
+
+topbar.config({barColors: {0: topbarColor()}, shadowColor: "rgba(0, 0, 0, .3)"})
+window.addEventListener("phx:page-loading-start", _info => {
+  topbar.config({barColors: {0: topbarColor()}, shadowColor: "rgba(0, 0, 0, .3)"})
+  topbar.show(300)
+})
 window.addEventListener("phx:page-loading-stop", _info => topbar.hide())
 
 // connect if there are any LiveViews on the page

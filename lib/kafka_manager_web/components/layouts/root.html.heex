@@ -14,7 +14,10 @@
 
         const setTheme = (theme) => {
           if (theme === "system") {
-            localStorage.removeItem("phx:theme");
+            // A user-chosen "system": remember the choice so a reload keeps
+            // following the OS, and mark the source so the OS-change
+            // listener below is allowed to update the page live.
+            localStorage.setItem("phx:theme", "system");
             document.documentElement.setAttribute("data-theme", systemTheme());
             document.documentElement.setAttribute("data-theme-source", "system");
           } else {
@@ -24,15 +27,16 @@
           }
         };
         if (!document.documentElement.hasAttribute("data-theme")) {
-          // No stored choice: default to dark regardless of the OS setting
-          // (docs/DESIGN.md Assumption 1), rather than following the system
-          // preference like the "system" toggle option does.
           const stored = localStorage.getItem("phx:theme");
           if (stored) {
             setTheme(stored);
           } else {
+            // No stored choice: default to dark regardless of the OS setting
+            // (docs/DESIGN.md Assumption 1). Leave data-theme-source unset so
+            // the toggle highlights "dark" (not "system") and the
+            // prefers-color-scheme listener below ignores OS changes until
+            // the user actually picks "system".
             document.documentElement.setAttribute("data-theme", "dark");
-            document.documentElement.setAttribute("data-theme-source", "system");
           }
         }
         window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
