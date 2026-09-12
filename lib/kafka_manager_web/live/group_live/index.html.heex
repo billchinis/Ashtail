@@ -38,7 +38,7 @@
         :if={not group.expanded?}
         type="button"
         data-expand-group
-        class="btn btn-xs btn-ghost phx-click-loading:opacity-60"
+        class="btn btn-xs btn-ghost phx-click-loading:opacity-60 max-sm:btn-block"
         phx-click="expand_group"
         phx-value-group={group.id}
       >
@@ -48,7 +48,7 @@
         :if={group.expanded?}
         type="button"
         data-collapse-group
-        class="btn btn-xs btn-ghost phx-click-loading:opacity-60"
+        class="btn btn-xs btn-ghost phx-click-loading:opacity-60 max-sm:btn-block"
         phx-click="collapse_group"
         phx-value-group={group.id}
       >

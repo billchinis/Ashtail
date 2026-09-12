@@ -114,7 +114,7 @@
                     :key={row.id}
                     id={"json-condition-#{row.id}"}
                     data-json-condition={row.id}
-                    class="grid grid-cols-[6rem_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,3fr)_6rem_minmax(0,2fr)_auto] gap-1.5 gap-y-3 items-center"
+                    class="grid grid-cols-[6rem_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,3fr)_6rem_minmax(0,2fr)_auto] gap-1.5 gap-y-3 items-center max-sm:[--size-field:0.25rem]"
                   >
                     <input
                       type="text"
@@ -144,7 +144,7 @@
                       value={row.value}
                       placeholder={if row.op == "exists", do: "no value", else: "value"}
                       readonly={row.op == "exists"}
-                      aria-disabled={row.op == "exists"}
+                      aria-disabled={row.op == "exists" && "true"}
                       tabindex={row.op == "exists" && "-1"}
                       aria-label={"JSON value #{position + 1}"}
                       class={[
@@ -180,7 +180,7 @@
                   type="button"
                   phx-click="add_json_condition"
                   data-add-json-condition
-                  class="btn btn-xs sm:btn-sm btn-ghost text-base-content/70 justify-self-start"
+                  class="btn btn-sm sm:btn-xs btn-ghost text-base-content/70 justify-self-start"
                 >
                   <.icon name="hero-plus" class="size-3" /> Add JSON field
                 </button>
