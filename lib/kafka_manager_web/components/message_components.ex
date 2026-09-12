@@ -65,10 +65,13 @@ defmodule KafkaManagerWeb.MessageComponents do
     <div>
       <span
         :if={not @long? and @value == ""}
+        data-value
+        data-value-empty
         class="block bg-base-200 rounded-lg px-3 py-1 font-mono text-sm leading-5 italic text-base-content/60"
       >(empty)</span>
       <span
         :if={not @long? and @value != ""}
+        data-value
         class="block bg-base-200 rounded-lg px-3 py-1 font-mono text-sm leading-5 whitespace-pre-wrap break-all"
       >{@value}</span>
       <span
