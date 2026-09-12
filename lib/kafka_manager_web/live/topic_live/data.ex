@@ -19,6 +19,14 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   as it does to a page or a scan. New rows are prepended and the stream is
   trimmed to `page_size`. Turning tailing on returns to page 1, and the
   tail starts exactly where that page ended, once it has loaded.
+
+  AC-27 and AC-28 (2026-09-12) bound a scan: every scan reads at most
+  `scan_budget/0` messages per read (`max_scanned`), and a read that stops
+  at that limit short of a full page offers "Scan more", which continues
+  from the returned cursor into the same page, keeping the rows and the
+  count found so far (`scan_page` accumulates the completed reads). A
+  running scan offers "Stop", which cancels the task and keeps what it
+  found (`scan_state: :stopped`).
   """
 
   use KafkaManagerWeb, :live_view
@@ -30,6 +38,7 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   @default_page_size 50
   @tail_interval_ms 1_000
   @tail_limit 500
+  @scan_budget 100_000
 
   @impl true
   def mount(_params, _session, socket) do
@@ -51,6 +60,8 @@ defmodule KafkaManagerWeb.TopicLive.Data do
         scan_id: nil,
         scan_state: :complete,
         scanned: 0,
+        scan_page: nil,
+        scan_more: nil,
         message_index: %{},
         tailing?: false,
         tail_from: nil,
@@ -162,6 +173,46 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     {:noreply, toggle_tail(socket, not socket.assigns.tailing?)}
   end
 
+  # AC-28: cancels the running scan and keeps what it found. A fresh
+  # `scan_id` makes the cancelled task's `{:exit, {:shutdown, :cancel}}`
+  # a stale result, swallowed below. A tail switched on but not yet armed
+  # was waiting for this scan's page-1 read, which will now never complete
+  # (docs/PLAN.md 4.10), so it is switched off rather than left "live".
+  def handle_event("stop_scan", _params, %{assigns: %{scan_state: :running}} = socket) do
+    socket =
+      socket
+      |> maybe_cancel_scan()
+      |> assign(scan_id: make_ref(), scan_state: :stopped, scan_more: nil)
+
+    socket = if is_nil(socket.assigns.tail_from), do: stop_tail(socket), else: socket
+    {:noreply, socket}
+  end
+
+  def handle_event("stop_scan", _params, socket), do: {:noreply, socket}
+
+  # AC-27: continues a scan that stopped at the limit, into the same page:
+  # the same filter, the remaining rows of the page, from the cursor the
+  # last read returned. The URL is untouched, so a reload starts the page
+  # over from its own cursor.
+  def handle_event(
+        "scan_more",
+        _params,
+        %{assigns: %{scan_state: :complete, scan_more: cursor, scan_page: %{} = acc}} = socket
+      )
+      when not is_nil(cursor) do
+    %{topic_name: topic, filter: filter, page_size: page_size} = socket.assigns
+    scan_id = make_ref()
+
+    socket =
+      socket
+      |> assign(scan_id: scan_id, scan_state: :running, scan_more: nil)
+      |> start_scan_task(topic, filter, page_size - length(acc.messages), cursor, scan_id)
+
+    {:noreply, socket}
+  end
+
+  def handle_event("scan_more", _params, socket), do: {:noreply, socket}
+
   @impl true
   def handle_info(:tail_tick, socket) do
     if socket.assigns.tailing? do
@@ -180,7 +231,7 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     socket =
       socket
       |> assign(
-        scanned: scanned,
+        scanned: scanned_before(socket) + scanned,
         message_index: Map.merge(socket.assigns.message_index, additions)
       )
       |> insert_rows(rows)
@@ -201,7 +252,7 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     socket =
       case result do
         {:ok, page} ->
-          apply_page(socket, page)
+          apply_page(socket, merge_page(socket, page))
 
         {:error, %BrokerError{} = error} ->
           socket
@@ -253,6 +304,8 @@ defmodule KafkaManagerWeb.TopicLive.Data do
           filter_errors: errors,
           scan_state: :complete,
           scanned: 0,
+          scan_page: nil,
+          scan_more: nil,
           older: nil,
           newer: nil,
           page_high: nil
@@ -272,8 +325,6 @@ defmodule KafkaManagerWeb.TopicLive.Data do
   end
 
   defp start_scan(socket, topic, filter, page_size, cursor, scan_id) do
-    live_view = self()
-
     socket
     # `older`/`newer` are reset so the previous read's pager links (possibly
     # from a different filter) do not stay on screen while this scan runs
@@ -284,20 +335,116 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     |> assign(
       scan_state: :running,
       scanned: 0,
+      scan_page: nil,
+      scan_more: nil,
       message_index: %{},
       older: nil,
       newer: nil,
       page_high: nil
     )
     |> stream(:messages, [], reset: true)
-    |> start_async({:scan, scan_id}, fn ->
-      Kafka.read_topic(topic,
-        page_size: page_size,
-        cursor: cursor,
-        filter: filter,
-        on_progress: fn progress -> send(live_view, {:scan_progress, scan_id, progress}) end
+    |> start_scan_task(topic, filter, page_size, cursor, scan_id)
+  end
+
+  # One read of the scan, bounded by `scan_budget/0` (AC-27). Shared by a
+  # fresh scan and a "Scan more" continuation, which differ only in what
+  # they reset first.
+  defp start_scan_task(socket, topic, filter, page_size, cursor, scan_id) do
+    live_view = self()
+
+    start_async(socket, {:scan, scan_id}, fn ->
+      Kafka.read_topic(
+        topic,
+        [
+          page_size: page_size,
+          cursor: cursor,
+          filter: filter,
+          max_scanned: scan_budget(),
+          on_progress: fn progress -> send(live_view, {:scan_progress, scan_id, progress}) end
+        ] ++ scan_chunk_opts()
       )
     end)
+  end
+
+  # Configurable, not just `@scan_budget`, so a test can set it far below
+  # what any seed topic holds (AC-27).
+  defp scan_budget, do: Application.get_env(:kafka_manager, :data_scan_budget, @scan_budget)
+
+  # Test-only: a small chunk makes a scan slow enough to still be running
+  # when Stop is clicked (AC-28). Never set outside a test.
+  defp scan_chunk_opts do
+    case Application.get_env(:kafka_manager, :data_scan_chunk) do
+      nil -> []
+      chunk -> [scan_chunk: chunk]
+    end
+  end
+
+  # What earlier reads of this page already checked: a continuation's
+  # progress and result count on from there.
+  defp scanned_before(%{assigns: %{scan_page: %{scanned: scanned}}}), do: scanned
+  defp scanned_before(_socket), do: 0
+
+  # A continuation's result is folded into the page accumulated so far
+  # (`scan_page`): rows are appended in the read direction, the count adds
+  # up, and the page keeps the pager cursor and range edge on the side it
+  # started from. A fresh scan has no `scan_page` and is taken as it is.
+  defp merge_page(%{assigns: %{scan_page: nil}}, page), do: page
+
+  defp merge_page(%{assigns: %{scan_page: acc, cursor: cursor}}, page) do
+    case direction(cursor) do
+      :backward ->
+        %{
+          page
+          | messages: acc.messages ++ page.messages,
+            newer: acc.newer,
+            scanned: acc.scanned + page.scanned,
+            range: merge_range(acc.range, page.range, :backward)
+        }
+
+      :forward ->
+        %{
+          page
+          | messages: page.messages ++ acc.messages,
+            older: acc.older,
+            scanned: acc.scanned + page.scanned,
+            range: merge_range(acc.range, page.range, :forward)
+        }
+    end
+  end
+
+  defp merge_range(acc_range, range, :backward) do
+    Map.new(range, fn {p, {low, high}} ->
+      {_acc_low, acc_high} = Map.get(acc_range, p, {low, high})
+      {p, {low, acc_high}}
+    end)
+  end
+
+  defp merge_range(acc_range, range, :forward) do
+    Map.new(range, fn {p, {low, high}} ->
+      {acc_low, _acc_high} = Map.get(acc_range, p, {low, high})
+      {p, {acc_low, high}}
+    end)
+  end
+
+  defp direction({:after, _map}), do: :forward
+  defp direction(_cursor), do: :backward
+
+  defp pager_links(page, nil, _direction), do: {page.older, page.newer}
+  defp pager_links(page, _scan_more, :backward), do: {nil, page.newer}
+  defp pager_links(page, _scan_more, :forward), do: {page.older, nil}
+
+  # The cursor "Scan more" continues from, or `nil` when there is nothing
+  # to continue (AC-27): the page is full, the range is exhausted in the
+  # read direction, a pattern halted the scan, or no filter is active (an
+  # unfiltered page never stops short of a full page or the range's end).
+  defp continuation(%{assigns: %{filter: filter, page_size: page_size, cursor: cursor}}, page) do
+    cond do
+      not Filter.active?(filter) -> nil
+      page.halted != nil -> nil
+      length(page.messages) >= page_size -> nil
+      direction(cursor) == :backward -> page.older
+      true -> page.newer
+    end
   end
 
   # P3's two-fetch rule: a successful page read must not clear an error the
@@ -311,7 +458,7 @@ defmodule KafkaManagerWeb.TopicLive.Data do
       {:error, %BrokerError{} = error} ->
         socket
         |> assign(broker_error: first_error(socket.assigns.broker_error, error))
-        |> assign(scan_state: :complete, scanned: 0)
+        |> assign(scan_state: :complete, scanned: 0, scan_page: nil, scan_more: nil)
     end
   end
 
@@ -319,12 +466,18 @@ defmodule KafkaManagerWeb.TopicLive.Data do
     index = Map.new(page.messages, &{{&1.partition, &1.offset}, &1})
     rows = Enum.map(page.messages, &to_row(&1, false))
     high = page_high(socket, page)
+    scan_more = continuation(socket, page)
+    # While "Scan more" is offered the page is not complete, so the pager
+    # link in the read direction waits until it is (AC-27).
+    {older, newer} = pager_links(page, scan_more, direction(socket.assigns.cursor))
 
     socket
     |> assign(
-      older: page.older,
-      newer: page.newer,
+      older: older,
+      newer: newer,
       scanned: page.scanned,
+      scan_page: page,
+      scan_more: scan_more,
       message_index: index,
       scan_state: :complete,
       page_high: high

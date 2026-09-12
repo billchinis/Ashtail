@@ -324,18 +324,44 @@
         data-scanned={@scanned}
         class="flex items-center gap-2"
       >
-        <%= if @scan_state == :complete do %>
-          <.icon name="hero-check-circle" class="size-4 text-success" />
-          <span class="text-base-content/60">
-            <%= if Filter.active?(@filter) do %>
-              {@scanned} messages checked
-            <% else %>
-              {@scanned} messages loaded
-            <% end %>
-          </span>
-        <% else %>
-          <span class="loading loading-dots loading-sm text-primary" />
-          <span class="font-medium">Searching… {@scanned} messages checked</span>
+        <%= case @scan_state do %>
+          <% :running -> %>
+            <span class="loading loading-dots loading-sm text-primary" />
+            <span class="font-medium">Searching… {@scanned} messages checked</span>
+            <button
+              type="button"
+              data-scan-stop
+              phx-click="stop_scan"
+              class="btn btn-sm btn-ghost phx-click-loading:opacity-60"
+            >
+              <.icon name="hero-stop" class="size-4" /> Stop
+            </button>
+          <% :stopped -> %>
+            <.icon name="hero-stop-circle" class="size-4 text-warning" />
+            <span class="text-base-content/60">
+              Stopped after {@scanned} messages checked
+            </span>
+          <% :complete -> %>
+            <.icon name="hero-check-circle" class="size-4 text-success" />
+            <span class="text-base-content/60">
+              <%= cond do %>
+                <% @scan_more -> %>
+                  {@scanned} messages checked, scan limit reached
+                <% Filter.active?(@filter) -> %>
+                  {@scanned} messages checked
+                <% true -> %>
+                  {@scanned} messages loaded
+              <% end %>
+            </span>
+            <button
+              :if={@scan_more}
+              type="button"
+              data-scan-more
+              phx-click="scan_more"
+              class="btn btn-sm btn-ghost phx-click-loading:opacity-60"
+            >
+              <.icon name="hero-chevron-double-down" class="size-4" /> Scan more
+            </button>
         <% end %>
       </div>
 
@@ -365,6 +391,24 @@
           <% @scan_state == :running -> %>
             <span class="loading loading-dots loading-sm text-primary" />
             Searching… no matches yet
+          <% @scan_state == :stopped -> %>
+            <div class="space-y-2">
+              <p>Search stopped.</p>
+              <p class="text-xs">No matches in the {@scanned} messages checked.</p>
+              <button type="button" phx-click="clear" class="btn btn-sm btn-ghost">
+                Clear filters
+              </button>
+            </div>
+          <% @scan_more -> %>
+            <div class="space-y-2">
+              <p>No matches yet.</p>
+              <p class="text-xs">
+                Checked {@scanned} messages, up to the scan limit. Use Scan more to keep searching.
+              </p>
+              <button type="button" phx-click="clear" class="btn btn-sm btn-ghost">
+                Clear filters
+              </button>
+            </div>
           <% Filter.active?(@filter) -> %>
             <div class="space-y-2">
               <p>No messages match these filters.</p>
