@@ -48,7 +48,7 @@ defmodule KafkaManagerWeb.MessageComponents do
   (AC-8) render behind a server-side expander (docs/PLAN.md 4.1, P4)
   instead of in full. `partition` is set only where the caller's expand
   and collapse events are keyed by `{partition, offset}` (the Data view). An
-  empty string (fix run item 6) renders a muted `(empty)` marker instead of
+  empty string (AC-25) renders a muted `(empty)` marker instead of
   a blank block, in the same spirit as `message_key/1`'s `<null>` marker but
   without claiming the value was null: the broker gives no way to tell a
   Kafka null value apart from an empty string (docs/DECISIONS.md).
@@ -76,6 +76,7 @@ defmodule KafkaManagerWeb.MessageComponents do
       >{@value}</span>
       <span
         :if={@long? and @expanded?}
+        data-value
         data-value-full
         class="block max-h-[32rem] overflow-y-auto bg-base-200 rounded-lg px-3 py-1 font-mono text-sm leading-5 whitespace-pre-wrap break-all"
       >{@value}</span>
@@ -92,6 +93,7 @@ defmodule KafkaManagerWeb.MessageComponents do
       </button>
       <span
         :if={@long? and not @expanded?}
+        data-value
         data-value-preview
         class="block bg-base-200 rounded-lg px-3 py-1 font-mono text-sm leading-5 whitespace-pre-wrap break-all"
       >{truncate(@value)}</span>

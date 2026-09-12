@@ -108,13 +108,13 @@
                   <.icon name="hero-exclamation-circle" class="size-3" />{@filter_errors["value"]}
                 </p>
 
-                <div class="flex flex-col gap-1.5">
+                <div class="flex flex-col gap-3">
                   <div
                     :for={{row, position} <- Enum.with_index(@json_rows)}
                     :key={row.id}
                     id={"json-condition-#{row.id}"}
                     data-json-condition={row.id}
-                    class="grid grid-cols-[6rem_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,3fr)_6rem_minmax(0,2fr)_auto] gap-1.5 gap-y-3 items-center max-sm:[--size-field:0.25rem]"
+                    class="grid grid-cols-[6rem_minmax(0,1fr)_auto] sm:grid-cols-[minmax(0,3fr)_6rem_minmax(0,2fr)_auto] gap-1.5 items-center max-sm:[--size-field:0.25rem]"
                   >
                     <input
                       type="text"
