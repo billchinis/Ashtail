@@ -319,11 +319,28 @@ defmodule KafkaManager.Kafka.Filter do
   defp match_json_condition(%{op: op, path: path, regex: regex, index: index}, term)
        when op in [:contains, :regex] do
     case JsonPath.fetch(term, path) do
-      {:ok, fetched} when is_binary(fetched) -> run_regex(regex, fetched, "json-#{index}")
-      {:ok, _other} -> :nomatch
-      :error -> :nomatch
+      {:ok, fetched} ->
+        case json_text_form(fetched) do
+          {:ok, text} -> run_regex(regex, text, "json-#{index}")
+          :error -> :nomatch
+        end
+
+      :error ->
+        :nomatch
     end
   end
+
+  # The subject `contains` and `regex` match: a string's own content, a
+  # number's or boolean's decoded text form, `null` for JSON null. Objects
+  # and arrays never match either operator (docs/PLAN.md 2.5.1, AC-26).
+  defp json_text_form(t) when is_binary(t), do: {:ok, t}
+  defp json_text_form(t) when is_number(t), do: {:ok, json_number_text(t)}
+  defp json_text_form(t) when is_boolean(t), do: {:ok, to_string(t)}
+  defp json_text_form(nil), do: {:ok, "null"}
+  defp json_text_form(_other), do: :error
+
+  defp json_number_text(t) when is_float(t), do: :erlang.float_to_binary(t, [:compact, :short])
+  defp json_number_text(t) when is_integer(t), do: Integer.to_string(t)
 
   defp json_equals?(t, value, _number) when is_binary(t), do: t == value
   defp json_equals?(t, _value, number) when is_number(t) and not is_nil(number), do: t == number

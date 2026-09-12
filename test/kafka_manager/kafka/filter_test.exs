@@ -119,17 +119,12 @@ defmodule KafkaManager.Kafka.FilterTest do
       assert Filter.match(filter, message(value: ~s({"items":[1,2]}))) == :nomatch
     end
 
-    test "contains is a case-insensitive substring on strings only" do
+    test "contains is a case-insensitive substring on a string's own content" do
       filter =
         json_filter([json_condition(%{"path" => "note", "op" => "contains", "value" => "GIFT"})])
 
       assert Filter.match(filter, message(value: ~s({"note":"Gift wrap"}))) == :match
       assert Filter.match(filter, message(value: ~s({"note":"ring bell"}))) == :nomatch
-
-      number_filter =
-        json_filter([json_condition(%{"path" => "amount", "op" => "contains", "value" => "5"})])
-
-      assert Filter.match(number_filter, message(value: ~s({"amount":5}))) == :nomatch
     end
 
     test "exists matches a present key, including one holding JSON null, but not a missing one" do
@@ -195,6 +190,73 @@ defmodule KafkaManager.Kafka.FilterTest do
     test "active?/1 is true with only a JSON condition" do
       filter = json_filter([json_condition(%{"path" => "note", "op" => "exists"})])
       assert Filter.active?(filter) == true
+    end
+  end
+
+  describe "contains and regex fall back to a scalar's JSON text form (AC-26)" do
+    test "contains matches a number by its decoded text form" do
+      filter =
+        json_filter([json_condition(%{"path" => "n", "op" => "contains", "value" => "4"})])
+
+      assert Filter.match(filter, message(value: ~s({"n":40}))) == :match
+      assert Filter.match(filter, message(value: ~s({"n":14.0}))) == :match
+      assert Filter.match(filter, message(value: ~s({"n":5}))) == :nomatch
+    end
+
+    test "regex matches a float by its decoded text form, not the literal's decimals" do
+      filter =
+        json_filter([
+          json_condition(%{"path" => "amount", "op" => "regex", "value" => "^14\\.0$"})
+        ])
+
+      assert Filter.match(filter, message(value: ~s({"amount":14.00}))) == :match
+
+      filter2 =
+        json_filter([
+          json_condition(%{"path" => "amount", "op" => "regex", "value" => "^14\\.00$"})
+        ])
+
+      assert Filter.match(filter2, message(value: ~s({"amount":14.00}))) == :nomatch
+    end
+
+    test "contains and regex match a boolean as true or false" do
+      contains_filter =
+        json_filter([json_condition(%{"path" => "paid", "op" => "contains", "value" => "RUE"})])
+
+      assert Filter.match(contains_filter, message(value: ~s({"paid":true}))) == :match
+      assert Filter.match(contains_filter, message(value: ~s({"paid":false}))) == :nomatch
+
+      regex_filter =
+        json_filter([json_condition(%{"path" => "paid", "op" => "regex", "value" => "^false$"})])
+
+      assert Filter.match(regex_filter, message(value: ~s({"paid":false}))) == :match
+      assert Filter.match(regex_filter, message(value: ~s({"paid":true}))) == :nomatch
+    end
+
+    test "contains and regex match JSON null as the text null" do
+      contains_filter =
+        json_filter([json_condition(%{"path" => "note", "op" => "contains", "value" => "ul"})])
+
+      assert Filter.match(contains_filter, message(value: ~s({"note":null}))) == :match
+
+      regex_filter =
+        json_filter([json_condition(%{"path" => "note", "op" => "regex", "value" => "^null$"})])
+
+      assert Filter.match(regex_filter, message(value: ~s({"note":null}))) == :match
+    end
+
+    test "contains and regex never match an object or an array" do
+      contains_filter =
+        json_filter([json_condition(%{"path" => "items", "op" => "contains", "value" => "sku"})])
+
+      assert Filter.match(contains_filter, message(value: ~s({"items":[{"sku":"A"}]}))) ==
+               :nomatch
+
+      regex_filter =
+        json_filter([json_condition(%{"path" => "customer", "op" => "regex", "value" => "cust"})])
+
+      assert Filter.match(regex_filter, message(value: ~s({"customer":{"id":"cust-001"}}))) ==
+               :nomatch
     end
   end
 end
