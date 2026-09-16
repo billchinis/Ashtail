@@ -2,6 +2,8 @@
 # Idempotent Kafka fixtures for the local Redpanda container (docker-compose.yml).
 # Safe to run repeatedly: topics are created only if missing, messages are
 # produced only into empty topics, consumer groups only if they do not exist.
+# Seeded topics whose records have expired under retention are recreated and
+# refilled.
 # `orders`, `notifications` and `payments` are recreated (and only then) if
 # their per-partition layout does not already match the deterministic shape
 # below.
@@ -19,8 +21,14 @@ cd "$(dirname "$0")/../.."
 rpk() { docker compose exec -T redpanda rpk "$@"; }
 
 topic_exists() { rpk topic list 2>/dev/null | awk 'NR>1 {print $1}' | grep -qx "$1"; }
+# Messages still on the broker: high watermark minus log start offset, so
+# records removed by retention are not counted.
 topic_message_count() {
-  rpk topic describe "$1" -p 2>/dev/null | awk 'NR>1 && $1 ~ /^[0-9]+$/ {sum += $NF} END {print sum + 0}'
+  rpk topic describe "$1" -p 2>/dev/null | awk 'NR>1 && $1 ~ /^[0-9]+$/ {sum += $NF - $(NF-1)} END {print sum + 0}'
+}
+# True if retention has removed records from the start of any partition.
+topic_trimmed() {
+  rpk topic describe "$1" -p 2>/dev/null | awk 'NR>1 && $1 ~ /^[0-9]+$/ && $(NF-1) > 0 {found = 1} END {exit !found}'
 }
 group_exists() { rpk group list 2>/dev/null | awk 'NR>1 {print $2}' | grep -qx "$1"; }
 
@@ -35,6 +43,17 @@ ensure_topic() { # name partitions [config...]
 
 # ensure_topic_config TOPIC key=value: sets the config explicitly (as a
 # per-topic override, not a cluster default) unless it is already explicit.
+# ensure_seeded_topic: like ensure_topic, but for topics filled once by this
+# script. If retention has removed any of the seeded records, the topic is
+# recreated so it is refilled from offset 0.
+ensure_seeded_topic() { # name partitions [config...]
+  if topic_exists "$1" && topic_trimmed "$1"; then
+    echo "topic $1: records expired, recreating"
+    rpk topic delete "$1" >/dev/null
+  fi
+  ensure_topic "$@"
+}
+
 ensure_topic_config() {
   local name="$1" kv="$2" key="${2%%=*}"
   local source
@@ -371,8 +390,8 @@ if ensure_deterministic_topic notifications 12 4 notifications_partition0_ok; th
   kill_stray_consumer "consume notifications -g live-tailer"
   delete_group_if_exists live-tailer
 fi
-ensure_topic events.compacted 2 cleanup.policy=compact retention.ms=86400000 segment.ms=60000
-ensure_topic "$LONG_TOPIC" 1 retention.bytes=104857600
+ensure_seeded_topic events.compacted 2 cleanup.policy=compact retention.ms=86400000 segment.ms=60000
+ensure_seeded_topic "$LONG_TOPIC" 1 retention.bytes=104857600
 ensure_topic empty-topic 2
 ensure_topic scratch 1
 
