@@ -45,15 +45,21 @@ defmodule AshtailWeb.Layouts do
         aria-label="Main"
         class="max-w-7xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center gap-3 sm:gap-10"
       >
-        <.link navigate={~p"/"} class="order-1 flex items-center gap-3 sm:gap-4">
+        <.link navigate={~p"/"} class="order-1 shrink-0" aria-label="Ashtail home">
           <img
-            src={~p"/images/ashtail-128.png"}
-            alt=""
-            width="64"
-            height="64"
-            class="size-12 sm:size-16"
+            src={~p"/images/ashtail-wordmark.png"}
+            alt="Ashtail"
+            width="186"
+            height="48"
+            class="h-9 sm:h-12 w-auto [[data-theme=dark]_&]:hidden"
           />
-          <span class="text-2xl sm:text-3xl font-bold tracking-tight">Ashtail</span>
+          <img
+            src={~p"/images/ashtail-wordmark-dark.png"}
+            alt="Ashtail"
+            width="186"
+            height="48"
+            class="hidden h-9 sm:h-12 w-auto [[data-theme=dark]_&]:block"
+          />
         </.link>
 
         <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">

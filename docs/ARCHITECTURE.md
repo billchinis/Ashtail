@@ -494,6 +494,12 @@ screenshot pass.
   use hairline separators and headings are serif. First visit is light regardless of OS
   setting; the toggle stores the choice and a small script in
   `root.html.heex` applies it before paint.
+- Branding: the sticky top bar shows the "Ashtail" wordmark
+  (`priv/static/images/ashtail-wordmark.png`, with a light-lettered
+  `-dark` copy swapped in on the dark theme). The "A" mark alone
+  (`ashtail-mark-128.png`) is used for the favicon and touch icon. Sources
+  are `docs/images/logo.png` (mark) and `docs/images/logo-text.png`
+  (wordmark); the web sizes are resized from them.
 - Fonts (Inter, Source Serif 4, JetBrains Mono) are self-hosted from
   `priv/static/fonts`, so the app works offline.
 - Shared pieces live in `components/`:

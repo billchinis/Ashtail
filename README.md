@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="docs/images/ashtail-256.png" alt="Ashtail" width="160">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/images/ashtail-wordmark-dark.png">
+    <img src="docs/images/ashtail-wordmark.png" alt="Ashtail" width="320">
+  </picture>
 </p>
 
 # Ashtail
