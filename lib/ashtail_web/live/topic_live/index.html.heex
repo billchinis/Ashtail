@@ -24,6 +24,24 @@
     </form>
 
     <form
+      id="sort-form"
+      data-sort-form
+      phx-change="sort_select"
+      class="flex items-center gap-2 sm:hidden"
+    >
+      <label for="sort" class="text-xs text-base-content/60">Sort by</label>
+      <select id="sort" name="sort" class="select select-sm flex-1">
+        <option
+          :for={{value, label} <- @sort_options}
+          value={value}
+          selected={value == "#{@sort}:#{@dir}"}
+        >
+          {label}
+        </option>
+      </select>
+    </form>
+
+    <form
       id="page-size-form"
       data-page-size-form
       phx-change="page_size"
@@ -43,8 +61,11 @@
     rows={@streams.topics}
     empty="No topics match."
     row_attrs={fn topic -> %{"data-topic" => topic.name} end}
+    sort_link={&sort_path(@query, &1)}
+    sort_by={@sort}
+    sort_dir={@dir}
   >
-    <:col :let={topic} label="Name">
+    <:col :let={topic} label="Name" sort={:name}>
       <.link
         navigate={~p"/topics/#{topic.name}"}
         class="link link-hover font-mono break-all line-clamp-3 sm:line-clamp-2"
@@ -52,15 +73,15 @@
         {topic.name}
       </.link>
     </:col>
-    <:col :let={topic} label="Partitions" numeric class="sm:w-32">
+    <:col :let={topic} label="Partitions" numeric sort={:partitions} class="sm:w-32">
       <span class="sm:hidden text-base-content/60">Partitions</span>
       <span data-partitions>{topic.partition_count}</span>
     </:col>
-    <:col :let={topic} label="Replication" numeric class="sm:w-28">
+    <:col :let={topic} label="Replication" numeric sort={:replication} class="sm:w-28">
       <span class="sm:hidden text-base-content/60">RF</span>
       <span data-replication>{topic.replication_factor}</span>
     </:col>
-    <:col :let={topic} label="Messages" numeric class="sm:w-36">
+    <:col :let={topic} label="Messages" numeric sort={:messages} class="sm:w-36">
       <span class="sm:hidden text-base-content/60">Messages</span>
       <span data-messages class={topic.message_count == 0 && "text-base-content/40"}>
         {topic.message_count}
@@ -70,8 +91,8 @@
       <div class="flex items-center justify-between gap-4">
         <span class="text-sm text-base-content/60">Page {@page} of {@page_count}</span>
         <.pager
-          prev_patch={if @page > 1, do: page_path(@page - 1, @page_size, @search)}
-          next_patch={if @page < @page_count, do: page_path(@page + 1, @page_size, @search)}
+          prev_patch={if @page > 1, do: list_path(@query, page: @page - 1)}
+          next_patch={if @page < @page_count, do: list_path(@query, page: @page + 1)}
         />
       </div>
     </:footer>

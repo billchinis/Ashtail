@@ -53,7 +53,7 @@ ACLs, offset resets, topic creation/deletion.
 
 | Screen | Route | What it does |
 | --- | --- | --- |
-| Topic list | `/` | Name, partitions, replication factor, message count. Case-insensitive name search (`q`), pagination with 20/50 per page. Internal topics are hidden. |
+| Topic list | `/` | Name, partitions, replication factor, message count. Case-insensitive name search (`q`), pagination with 20/50 per page. Click any column header to sort by it (click again to flip direction; default name A–Z); on mobile a "Sort by" menu does the same. Internal topics are hidden. |
 | Topic → Data | `/topics/:topic` | Messages from **all** partitions merged newest-first by timestamp. Key / value / header filters (text or regex), partition filter, From/To time range, any number of JSON field conditions. Bounded scans with a progress bar, **Stop** and **Scan more**. Live tail. Cursor-based paging. |
 | Topic → Partitions | `/topics/:topic/partitions` | Per-partition leader, replicas, earliest/latest offset, message count. |
 | Topic → Consumer Groups | `/topics/:topic/groups` | Groups that committed on the topic or have a live member assigned to it, with lag. |
@@ -227,9 +227,18 @@ without a broker.
 ### `Topics`
 
 - `list_topics/2` fetches metadata, drops internal topics, filters by
-  substring, sorts, clamps the page, then fetches earliest/latest offsets
-  **only for the visible page**. Message count is `Σ(latest − earliest)`;
-  on compacted topics that's an upper bound, which is the usual convention.
+  substring, sorts (`:sort` is `:name`, `:partitions`, `:replication` or
+  `:messages`; `:dir` is `:asc`/`:desc`; ties always fall back to name A–Z),
+  clamps the page, then fetches earliest/latest offsets **only for the
+  visible page**. The exception is sorting by messages: counts come from
+  offsets, so they're fetched for every topic matching the search before
+  sorting. Message count is `Σ(latest − earliest)`; on compacted topics
+  that's an upper bound, which is the usual convention.
+- The topic list keeps `page`, `page_size`, `q`, `sort` and `dir` in the URL.
+  A new column starts A–Z for names and largest-first for counts, and any
+  sort change goes back to page 1. The table component takes `sort_link`,
+  `sort_by` and `sort_dir`; columns with a `sort` key get a header link, an
+  `aria-sort` attribute and a faint tint when active.
 - `get_topic/2` adds configs; `topic_summary/2` is offsets only (used in every
   topic page header).
 - Unknown topic → `reason: :unknown_topic`.
@@ -609,6 +618,8 @@ change, including the mobile layout.
 - `produce/3` without a partition always writes to partition 0 rather than
   using a partitioner.
 - Every page is a fresh broker round trip; very large clusters will feel it on
-  the topic list (offsets are fetched only for the visible page to limit this).
+  the topic list (offsets are fetched only for the visible page to limit this,
+  except when sorting by message count, which reads every matching topic's
+  offsets).
 - Filtered scans are capped (100,000 messages per scan by default); use
   **Scan more** or narrow the time range for bigger topics.

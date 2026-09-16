@@ -31,7 +31,8 @@ defmodule AshtailWeb.RouteList do
   # state, a group with real lag, a `Stable` group on the Consumer Groups
   # sub-menu, `payments`' non-default `retention.ms` config override, a filtered
   # Data view (a whole-topic scan), the Data view over `payments`' mixed
-  # JSON/plain-text/truncated/null values, and a Data URL with two JSON field
+  # JSON/plain-text/truncated/null values, the topic list sorted by message
+  # count (which reads every topic's offsets), and a Data URL with two JSON field
   # conditions — that last path is `DataParams.path/4`'s own output for those
   # rows (`iex -S mix`), so it is exactly the URL the app itself builds. Kept
   # here, alongside `@params`, so `mix screenshots` and the smoke test never
@@ -47,6 +48,7 @@ defmodule AshtailWeb.RouteList do
     %{path: "/topics/payments/configs", live?: true},
     %{path: "/topics/orders?key=%5Eorder-0001%24&key_mode=regex", live?: true},
     %{path: "/topics/payments", live?: true},
+    %{path: "/?dir=desc&sort=messages", live?: true},
     %{
       path:
         "/topics/payments?json[0][path]=note&json[0][op]=exists&json[1][path]=items%5B1%5D.qty&json[1][op]=equals&json[1][value]=3",

@@ -381,10 +381,20 @@ defmodule AshtailWeb.CoreComponents do
 
   attr :empty, :string, default: "No results.", doc: "the empty-state sentence"
 
+  attr :sort_link, :any,
+    default: nil,
+    doc:
+      "a function from a column's `sort` key to the URL that sorts by it; " <>
+        "when set, every column with a `sort` key gets a clickable header"
+
+  attr :sort_by, :atom, default: nil, doc: "the `sort` key of the column currently sorted"
+  attr :sort_dir, :atom, default: :asc, values: [:asc, :desc]
+
   slot :col, required: true do
     attr :label, :string
     attr :numeric, :boolean
     attr :class, :any
+    attr :sort, :atom
   end
 
   slot :action, doc: "the slot for showing user actions in the last table column"
@@ -416,13 +426,35 @@ defmodule AshtailWeb.CoreComponents do
           <tr>
             <th
               :for={col <- @col}
+              data-sort-column={sortable?(@sort_link, col) && col[:sort]}
+              aria-sort={sortable?(@sort_link, col) && aria_sort(col[:sort] == @sort_by, @sort_dir)}
               class={[
                 "text-xs font-medium uppercase tracking-wide text-base-content/50",
                 col[:numeric] && "text-right tabular-nums whitespace-nowrap",
+                sorted?(@sort_link, col, @sort_by) && "sm:bg-primary/5",
                 col[:class]
               ]}
             >
-              {col[:label]}
+              <.link
+                :if={sortable?(@sort_link, col)}
+                patch={@sort_link.(col[:sort])}
+                data-sort={col[:sort]}
+                class={[
+                  "inline-flex items-center gap-1 uppercase transition-colors",
+                  col[:numeric] && "flex-row-reverse",
+                  if(col[:sort] == @sort_by,
+                    do: "text-primary font-semibold",
+                    else: "hover:text-base-content"
+                  )
+                ]}
+              >
+                {col[:label]}
+                <.icon
+                  name={sort_icon(col[:sort] == @sort_by, @sort_dir)}
+                  class={["size-4", col[:sort] != @sort_by && "opacity-50"]}
+                />
+              </.link>
+              <span :if={!sortable?(@sort_link, col)}>{col[:label]}</span>
             </th>
             <th :if={@action != []}>
               <span class="sr-only">Actions</span>
@@ -463,6 +495,7 @@ defmodule AshtailWeb.CoreComponents do
                   i > 0 && "max-sm:text-xs max-sm:flex max-sm:items-start max-sm:gap-1",
                   @row_click && "hover:cursor-pointer",
                   col[:numeric] && "text-right tabular-nums whitespace-nowrap",
+                  sorted?(@sort_link, col, @sort_by) && "sm:bg-primary/5",
                   col[:class]
                 ]
               }
@@ -485,6 +518,18 @@ defmodule AshtailWeb.CoreComponents do
     </div>
     """
   end
+
+  defp sortable?(sort_link, col), do: sort_link != nil and col[:sort] != nil
+
+  defp sorted?(sort_link, col, sort_by), do: sortable?(sort_link, col) and col[:sort] == sort_by
+
+  defp aria_sort(false, _dir), do: "none"
+  defp aria_sort(true, :asc), do: "ascending"
+  defp aria_sort(true, :desc), do: "descending"
+
+  defp sort_icon(false, _dir), do: "hero-chevron-up-down-mini"
+  defp sort_icon(true, :asc), do: "hero-arrow-up-mini"
+  defp sort_icon(true, :desc), do: "hero-arrow-down-mini"
 
   @doc """
   Renders a data list.

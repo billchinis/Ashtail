@@ -1,17 +1,27 @@
 defmodule Ashtail.Kafka.Topics do
   @moduledoc """
-  Topic listing and detail. Search and pagination happen here, in Elixir,
-  against the full metadata fetched from the broker: Kafka itself has no
-  server-side topic paging. Offsets are only fetched for the topics on the
-  visible page, never for the whole cluster.
+  Topic listing and detail. Search, sorting and pagination happen here, in
+  Elixir, against the full metadata fetched from the broker: Kafka itself has
+  no server-side topic paging. Offsets are fetched only for the topics on the
+  visible page, except when sorting by message count, which needs the count of
+  every topic that matches the search.
   """
 
   alias Ashtail.Kafka.{BrokerError, Client, Config, Partition, Topic}
 
+  @sort_keys [:name, :partitions, :replication, :messages]
+
+  @doc "The columns `list_topics/2` can sort by."
+  @spec sort_keys() :: [atom()]
+  def sort_keys, do: @sort_keys
+
   @doc """
   Lists topics, filtered by a case-insensitive substring search on the name,
-  sorted by name ascending, paginated, with per-partition offsets (and so
-  `message_count`) fetched only for the returned page.
+  sorted (see `sort_topics/3`), and paginated.
+
+  Options: `:search`, `:page` (default 1), `:page_size` (default 20),
+  `:sort` (one of `sort_keys/0`, default `:name`) and `:dir` (`:asc` or
+  `:desc`, default `:asc`).
   """
   @spec list_topics(Config.t(), keyword()) ::
           {:ok,
@@ -27,23 +37,21 @@ defmodule Ashtail.Kafka.Topics do
     search = Keyword.get(opts, :search)
     page_size = Keyword.get(opts, :page_size, 20)
     requested_page = Keyword.get(opts, :page, 1)
+    sort = Keyword.get(opts, :sort, :name)
+    dir = Keyword.get(opts, :dir, :asc)
 
-    with {:ok, metadata} <- Client.metadata(config) do
-      topics =
-        metadata
-        |> topics_from_metadata()
-        |> filter_by_search(search)
-        |> Enum.sort_by(& &1.name)
-
+    with {:ok, metadata} <- Client.metadata(config),
+         topics = metadata |> topics_from_metadata() |> filter_by_search(search),
+         {:ok, topics} <- sort_with_offsets(config, topics, sort, dir) do
       total = length(topics)
       page_count = max(1, ceil_div(total, page_size))
       page = clamp(requested_page, 1, page_count)
       page_topics = Enum.slice(topics, (page - 1) * page_size, page_size)
 
-      with {:ok, topics_with_offsets} <- attach_offsets(config, page_topics) do
+      with {:ok, page_topics} <- ensure_offsets(config, page_topics, sort) do
         {:ok,
          %{
-           topics: topics_with_offsets,
+           topics: page_topics,
            total: total,
            page: page,
            page_size: page_size,
@@ -52,6 +60,42 @@ defmodule Ashtail.Kafka.Topics do
       end
     end
   end
+
+  @doc """
+  Sorts topics by `key` (one of `sort_keys/0`) in direction `dir`. Ties are
+  always broken by name ascending, whatever the direction.
+  """
+  @spec sort_topics([Topic.t()], atom(), :asc | :desc) :: [Topic.t()]
+  def sort_topics(topics, :name, dir), do: Enum.sort_by(topics, & &1.name, dir)
+
+  def sort_topics(topics, key, dir) when key in @sort_keys do
+    value = sort_value(key)
+
+    Enum.sort(topics, fn a, b ->
+      case {value.(a), value.(b)} do
+        {same, same} -> a.name <= b.name
+        {x, y} when dir == :asc -> x < y
+        {x, y} -> x > y
+      end
+    end)
+  end
+
+  defp sort_value(:partitions), do: & &1.partition_count
+  defp sort_value(:replication), do: & &1.replication_factor
+  defp sort_value(:messages), do: & &1.message_count
+
+  # Message counts come from offsets, so that sort needs them for every
+  # matching topic up front. The other sorts only use metadata.
+  defp sort_with_offsets(config, topics, :messages, dir) do
+    with {:ok, topics} <- attach_offsets(config, topics) do
+      {:ok, sort_topics(topics, :messages, dir)}
+    end
+  end
+
+  defp sort_with_offsets(_config, topics, sort, dir), do: {:ok, sort_topics(topics, sort, dir)}
+
+  defp ensure_offsets(_config, topics, :messages), do: {:ok, topics}
+  defp ensure_offsets(config, topics, _sort), do: attach_offsets(config, topics)
 
   @doc """
   A single topic's per-partition offsets and broker configuration.
