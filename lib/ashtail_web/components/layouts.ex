@@ -40,57 +40,62 @@ defmodule AshtailWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="max-w-6xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center gap-3 sm:gap-10">
-      <.link navigate={~p"/"} class="order-1 flex items-center gap-3">
-        <img
-          src={~p"/images/ashtail-128.png"}
-          alt=""
-          width="48"
-          height="48"
-          class="size-10 sm:size-12"
-        />
-        <span class="text-xl sm:text-2xl font-bold tracking-tight">Ashtail</span>
-      </.link>
+    <header class="sticky top-0 z-20 bg-base-100/95 backdrop-blur border-b border-base-300 shadow-sm before:block before:h-1 before:bg-gradient-to-r before:from-primary before:to-accent">
+      <nav
+        aria-label="Main"
+        class="max-w-6xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center gap-3 sm:gap-10"
+      >
+        <.link navigate={~p"/"} class="order-1 flex items-center gap-3 sm:gap-4">
+          <img
+            src={~p"/images/ashtail-128.png"}
+            alt=""
+            width="64"
+            height="64"
+            class="size-12 sm:size-16"
+          />
+          <span class="text-2xl sm:text-3xl font-bold tracking-tight">Ashtail</span>
+        </.link>
 
-      <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">
-        <div
-          tabindex="0"
-          role="button"
-          class="btn btn-ghost btn-sm btn-square sm:hidden"
-          aria-label="Menu"
-        >
-          <.icon name="hero-bars-3" class="size-5" />
+        <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">
+          <div
+            tabindex="0"
+            role="button"
+            class="btn btn-ghost btn-sm btn-square sm:hidden"
+            aria-label="Menu"
+          >
+            <.icon name="hero-bars-3" class="size-5" />
+          </div>
+          <ul
+            tabindex="0"
+            class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-center sm:!gap-0 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
+          >
+            <li>
+              <.link
+                navigate={~p"/"}
+                data-nav-topics
+                aria-current={@section == :topics && "true"}
+                class={nav_link_class(@section == :topics)}
+              >
+                Topics
+              </.link>
+            </li>
+            <li>
+              <.link
+                navigate={~p"/groups"}
+                data-nav-groups
+                aria-current={@section == :groups && "true"}
+                class={nav_link_class(@section == :groups)}
+              >
+                Consumer groups
+              </.link>
+            </li>
+          </ul>
         </div>
-        <ul
-          tabindex="0"
-          class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-center sm:!gap-0 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
-        >
-          <li>
-            <.link
-              navigate={~p"/"}
-              data-nav-topics
-              aria-current={@section == :topics && "true"}
-              class={nav_link_class(@section == :topics)}
-            >
-              Topics
-            </.link>
-          </li>
-          <li>
-            <.link
-              navigate={~p"/groups"}
-              data-nav-groups
-              aria-current={@section == :groups && "true"}
-              class={nav_link_class(@section == :groups)}
-            >
-              Consumer groups
-            </.link>
-          </li>
-        </ul>
-      </div>
 
-      <div class="order-2 sm:order-3 ml-auto">
-        <.theme_toggle />
-      </div>
+        <div class="order-2 sm:order-3 ml-auto">
+          <.theme_toggle />
+        </div>
+      </nav>
     </header>
 
     <main class="max-w-6xl mx-auto px-4 sm:px-8 pt-8 pb-16">
@@ -165,8 +170,8 @@ defmodule AshtailWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center bg-base-100 shadow-sm rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full bg-base-200 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
+    <div class="card relative flex flex-row items-center bg-base-200 border border-base-300 rounded-full">
+      <div class="absolute w-1/3 h-full rounded-full bg-base-100 shadow-sm left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
 
       <button
         class="flex p-2 cursor-pointer w-1/3"
