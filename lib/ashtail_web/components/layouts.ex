@@ -40,18 +40,17 @@ defmodule AshtailWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="max-w-6xl mx-auto px-4 sm:px-8 h-16 flex items-center gap-8">
-      <div class="order-1 flex items-center gap-2">
+    <header class="max-w-6xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center gap-3 sm:gap-10">
+      <.link navigate={~p"/"} class="order-1 flex items-center gap-3">
         <img
-          src={~p"/images/ashtail-64.png"}
-          srcset={~p"/images/ashtail-64.png" <> " 1x, " <> ~p"/images/ashtail-128.png" <> " 2x"}
+          src={~p"/images/ashtail-128.png"}
           alt=""
-          width="28"
-          height="28"
-          class="size-7"
+          width="48"
+          height="48"
+          class="size-10 sm:size-12"
         />
-        <span class="text-base font-semibold tracking-tight">Ashtail</span>
-      </div>
+        <span class="text-xl sm:text-2xl font-bold tracking-tight">Ashtail</span>
+      </.link>
 
       <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">
         <div
@@ -103,11 +102,12 @@ defmodule AshtailWeb.Layouts do
   end
 
   defp nav_link_class(true) do
-    "text-sm text-base-content font-medium underline decoration-2 " <>
+    "text-base text-base-content font-semibold underline decoration-2 " <>
       "decoration-primary underline-offset-8"
   end
 
-  defp nav_link_class(false), do: "text-sm text-base-content/60 hover:text-base-content"
+  defp nav_link_class(false),
+    do: "text-base font-medium text-base-content/60 hover:text-base-content"
 
   @doc """
   Shows the flash group with standard titles and content.
