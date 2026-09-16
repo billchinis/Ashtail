@@ -50,15 +50,15 @@ defmodule AshtailWeb.Layouts do
             <img
               src={~p"/images/ashtail-wordmark.png"}
               alt="Ashtail"
-              width="186"
-              height="48"
+              width="376"
+              height="96"
               class="block h-9 sm:h-11 w-auto [[data-theme=dark]_&]:hidden"
             />
             <img
               src={~p"/images/ashtail-wordmark-dark.png"}
               alt="Ashtail"
-              width="186"
-              height="48"
+              width="367"
+              height="96"
               class="hidden h-9 sm:h-11 w-auto [[data-theme=dark]_&]:block"
             />
           </.link>
