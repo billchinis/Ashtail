@@ -501,16 +501,16 @@ screenshot pass.
   use hairline separators and headings are serif. First visit is light regardless of OS
   setting; the toggle stores the choice and a small script in
   `root.html.heex` applies it before paint.
-- Branding: the sticky top bar shows the "Ashtail" wordmark: purple
-  lettering (`priv/static/images/ashtail-wordmark.png`) on the light theme,
-  white lettering (`ashtail-wordmark-dark.png`) on the dark theme, 32px
-  tall (28px on mobile). The "A" mark alone, on a transparent background
-  (`ashtail-mark-128.png`, cut from the wordmark as
-  `docs/images/logo-mark.png`), is the favicon; the touch icon puts it on
-  white because iOS fills transparency with black. Sources are
-  `docs/images/logo-text-purple.png` and `logo-text-white.png`; the web
-  sizes are resized from them. `docs/images/logo.png` (the mark on a black
-  square) is kept but not used.
+- Branding: the top bar shows the "A" mark (`priv/static/images/ashtail-a.png`,
+  28px) followed by "shtail" as HTML text (extra-bold Inter in the theme's
+  text colour), both centred on one line with the nav and theme toggle.
+  The same mark, on a transparent background, is the favicon
+  (`ashtail-mark-128.png`); the touch icon puts it on white because iOS
+  fills transparency with black. The mark was cut from
+  `docs/images/logo-text-purple.png` as `docs/images/logo-mark.png`. The
+  README uses the full wordmark images (`docs/images/ashtail-wordmark*.png`,
+  from `logo-text-purple.png` / `logo-text-white.png`).
+  `docs/images/logo.png` (the mark on a black square) is kept but not used.
 - Fonts (Inter, Source Serif 4, JetBrains Mono) are self-hosted from
   `priv/static/fonts`, so the app works offline.
 - Shared pieces live in `components/`:

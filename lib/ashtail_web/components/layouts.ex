@@ -44,21 +44,23 @@ defmodule AshtailWeb.Layouts do
       <nav aria-label="Main" class="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center">
         <%!-- The nav links and the theme toggle are centred on the wordmark. --%>
         <div class="flex flex-1 items-center gap-3 sm:gap-8">
-          <.link navigate={~p"/"} class="shrink-0" aria-label="Ashtail home">
+          <%!-- The "A" mark followed by the rest of the name as text, so the
+               lettering follows the theme's text colour. --%>
+          <.link
+            navigate={~p"/"}
+            class="shrink-0 flex items-center gap-px"
+            aria-label="Ashtail home"
+          >
             <img
-              src={~p"/images/ashtail-wordmark.png"}
-              alt="Ashtail"
-              width="376"
+              src={~p"/images/ashtail-a.png"}
+              alt=""
+              width="113"
               height="96"
-              class="block h-7 sm:h-8 w-auto [[data-theme=dark]_&]:hidden"
+              class="block h-7 w-auto"
             />
-            <img
-              src={~p"/images/ashtail-wordmark-dark.png"}
-              alt="Ashtail"
-              width="367"
-              height="96"
-              class="hidden h-7 sm:h-8 w-auto [[data-theme=dark]_&]:block"
-            />
+            <span class="text-2xl font-extrabold tracking-tight leading-none text-base-content">
+              shtail
+            </span>
           </.link>
 
           <div class="hidden sm:flex items-center gap-1">
