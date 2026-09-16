@@ -16,25 +16,31 @@ defmodule AshtailWeb.TopicListTest do
 
     assert count_topic_rows(html) == 20
 
-    orders_row = view |> element("[data-topic='orders']") |> render()
-    assert orders_row =~ "6 partitions"
-    assert orders_row =~ "RF 1"
-    assert orders_row =~ "600 messages"
-
-    notifications_row = view |> element("[data-topic='notifications']") |> render()
-    assert notifications_row =~ "12 partitions"
-    assert notifications_row =~ "RF 1"
-    assert notifications_row =~ "48 messages"
-
-    empty_topic_row = view |> element("[data-topic='empty-topic']") |> render()
-    assert empty_topic_row =~ "2 partitions"
-    assert empty_topic_row =~ "RF 1"
-    assert empty_topic_row =~ "0 messages"
+    assert_counts(view, "orders", "6", "1", "600")
+    assert_counts(view, "notifications", "12", "1", "48")
+    assert_counts(view, "empty-topic", "2", "1", "0")
 
     assert has_element?(view, "[data-topic='events.compacted']")
     assert has_element?(view, "[data-topic='scratch']")
     assert has_element?(view, "[data-topic='#{@audit_topic}']")
   end
+
+  # Each count cell holds the bare number; the unit words are gone, so the
+  # column header is the only label on desktop.
+  defp assert_counts(view, topic, partitions, replication, messages) do
+    row = "[data-topic='#{topic}']"
+
+    assert view |> element("#{row} [data-partitions]") |> render() |> text() == partitions
+    assert view |> element("#{row} [data-replication]") |> render() |> text() == replication
+    assert view |> element("#{row} [data-messages]") |> render() |> text() == messages
+
+    row_html = view |> element(row) |> render()
+    refute row_html =~ ~r/\d+ partitions/
+    refute row_html =~ ~r/RF \d/
+    refute row_html =~ ~r/\d+ messages/
+  end
+
+  defp text(html), do: html |> LazyHTML.from_fragment() |> LazyHTML.text() |> String.trim()
 
   defp count_topic_rows(html) do
     ~r/data-topic="/ |> Regex.scan(html) |> length()

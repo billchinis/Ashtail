@@ -53,14 +53,17 @@
       </.link>
     </:col>
     <:col :let={topic} label="Partitions" numeric class="sm:w-32">
-      {topic.partition_count} partitions
+      <span class="sm:hidden text-base-content/60">Partitions</span>
+      <span data-partitions>{topic.partition_count}</span>
     </:col>
     <:col :let={topic} label="Replication" numeric class="sm:w-28">
-      RF {topic.replication_factor}
+      <span class="sm:hidden text-base-content/60">RF</span>
+      <span data-replication>{topic.replication_factor}</span>
     </:col>
     <:col :let={topic} label="Messages" numeric class="sm:w-36">
-      <span class={topic.message_count == 0 && "text-base-content/40"}>
-        {topic.message_count} messages
+      <span class="sm:hidden text-base-content/60">Messages</span>
+      <span data-messages class={topic.message_count == 0 && "text-base-content/40"}>
+        {topic.message_count}
       </span>
     </:col>
     <:footer>

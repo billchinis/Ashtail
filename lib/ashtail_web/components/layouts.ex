@@ -173,7 +173,7 @@ defmodule AshtailWeb.Layouts do
   def theme_toggle(assigns) do
     ~H"""
     <div class="card relative flex flex-row items-center bg-base-200 border border-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full bg-base-100 shadow-sm left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
+      <div class="absolute w-1/3 h-full rounded-full bg-primary/10 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
 
       <button
         class="flex justify-center p-2.5 cursor-pointer w-1/3"
@@ -181,7 +181,10 @@ defmodule AshtailWeb.Layouts do
         data-phx-theme="system"
         aria-label="System theme"
       >
-        <.icon name="hero-computer-desktop" class="size-5 opacity-75 hover:opacity-100" />
+        <.icon
+          name="hero-computer-desktop"
+          class="size-5 opacity-75 hover:opacity-100 [[data-theme-source=system]_&]:text-primary [[data-theme-source=system]_&]:opacity-100"
+        />
       </button>
 
       <button
@@ -190,7 +193,10 @@ defmodule AshtailWeb.Layouts do
         data-phx-theme="light"
         aria-label="Light theme"
       >
-        <.icon name="hero-sun" class="size-5 opacity-75 hover:opacity-100" />
+        <.icon
+          name="hero-sun"
+          class="size-5 opacity-75 hover:opacity-100 [[data-theme=light]:not([data-theme-source=system])_&]:text-primary [[data-theme=light]:not([data-theme-source=system])_&]:opacity-100"
+        />
       </button>
 
       <button
@@ -199,7 +205,10 @@ defmodule AshtailWeb.Layouts do
         data-phx-theme="dark"
         aria-label="Dark theme"
       >
-        <.icon name="hero-moon" class="size-5 opacity-75 hover:opacity-100" />
+        <.icon
+          name="hero-moon"
+          class="size-5 opacity-75 hover:opacity-100 [[data-theme=dark]:not([data-theme-source=system])_&]:text-primary [[data-theme=dark]:not([data-theme-source=system])_&]:opacity-100"
+        />
       </button>
     </div>
     """
