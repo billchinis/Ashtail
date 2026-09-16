@@ -492,11 +492,14 @@ screenshot pass.
   Light is white sheets on a faint lavender page; dark is a deep purple
   ground with a lighter violet primary. The logo's violet-to-magenta gradient
   (`brand-violet` → `brand-magenta` in `@theme`, the same in both themes)
-  marks the top strip. The nav (Topics / Consumer groups) and the theme
-  toggle are matching segmented controls: a 40px track with the current
-  choice on a raised thumb in violet. In the top bar both controls sit with
-  their bottom edges on the wordmark's bottom edge, which is where its
-  letters end (box edges, so it holds whatever the font rendering).
+  marks the top strip. The current nav item (Topics / Consumer groups) sits
+  on a soft violet pill; the theme toggle is a segmented control with a
+  raised thumb. In the top bar the wordmark's letters end at the image's
+  bottom edge, the toggle's bottom sits on that line, and the desktop links
+  are moved down by their bottom padding plus 0.125em (the space Inter leaves
+  under the baseline with `leading-none`) so their text baseline lands on it
+  too. The desktop links are plain links rather than a daisyUI `menu`, whose
+  own padding would shift them; the mobile dropdown keeps the `menu`.
   Every text/background pair meets WCAG AA. Lists
   use hairline separators and headings are serif. First visit is light regardless of OS
   setting; the toggle stores the choice and a small script in

@@ -42,15 +42,11 @@ defmodule AshtailWeb.Layouts do
     ~H"""
     <header class="sticky top-0 z-20 bg-base-100/95 backdrop-blur border-b border-base-300 shadow-sm before:block before:h-1 before:bg-gradient-to-r before:from-brand-violet before:to-brand-magenta">
       <nav aria-label="Main" class="max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex items-center">
-        <%!-- The nav and theme controls sit with their bottom edges on the
-             wordmark's bottom edge, which is where its letters end. Box edges,
-             not text baselines, so it doesn't depend on font rendering. --%>
-        <div class="flex flex-1 items-end gap-3 sm:gap-10">
-          <.link
-            navigate={~p"/"}
-            class="order-1 shrink-0"
-            aria-label="Ashtail home"
-          >
+        <%!-- Bottom-aligned row: the wordmark's letters end at its bottom edge,
+             the theme toggle's bottom sits there too, and the desktop links are
+             nudged down so their text baseline lands on the same line. --%>
+        <div class="flex flex-1 items-end gap-3 sm:gap-8">
+          <.link navigate={~p"/"} class="shrink-0" aria-label="Ashtail home">
             <img
               src={~p"/images/ashtail-wordmark.png"}
               alt="Ashtail"
@@ -67,44 +63,53 @@ defmodule AshtailWeb.Layouts do
             />
           </.link>
 
-          <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">
-            <div
-              tabindex="0"
-              role="button"
-              class="btn btn-ghost btn-sm btn-square sm:hidden"
-              aria-label="Menu"
+          <div class="hidden sm:flex items-end gap-1">
+            <.link
+              navigate={~p"/"}
+              data-nav-topics
+              aria-current={@section == :topics && "true"}
+              class={nav_link_class(@section == :topics)}
             >
-              <.icon name="hero-bars-3" class="size-5" />
-            </div>
-            <ul
-              tabindex="0"
-              class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-center sm:!gap-0 sm:!w-auto sm:!rounded-full sm:!bg-base-200 sm:!p-1 sm:!shadow-none sm:ring-1 sm:ring-inset sm:ring-base-300"
+              Topics
+            </.link>
+            <.link
+              navigate={~p"/groups"}
+              data-nav-groups
+              aria-current={@section == :groups && "true"}
+              class={nav_link_class(@section == :groups)}
             >
-              <li>
-                <.link
-                  navigate={~p"/"}
-                  data-nav-topics
-                  aria-current={@section == :topics && "true"}
-                  class={nav_link_class(@section == :topics)}
-                >
-                  Topics
-                </.link>
-              </li>
-              <li>
-                <.link
-                  navigate={~p"/groups"}
-                  data-nav-groups
-                  aria-current={@section == :groups && "true"}
-                  class={nav_link_class(@section == :groups)}
-                >
-                  Consumer groups
-                </.link>
-              </li>
-            </ul>
+              Consumer groups
+            </.link>
           </div>
 
-          <div class="order-2 sm:order-3 ml-auto">
+          <div class="ml-auto flex items-end gap-2">
             <.theme_toggle />
+
+            <div class="dropdown dropdown-end sm:hidden">
+              <div
+                tabindex="0"
+                role="button"
+                class="btn btn-ghost btn-sm btn-square"
+                aria-label="Menu"
+              >
+                <.icon name="hero-bars-3" class="size-5" />
+              </div>
+              <ul
+                tabindex="0"
+                class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm"
+              >
+                <li>
+                  <.link navigate={~p"/"} class={menu_link_class(@section == :topics)}>
+                    Topics
+                  </.link>
+                </li>
+                <li>
+                  <.link navigate={~p"/groups"} class={menu_link_class(@section == :groups)}>
+                    Consumer groups
+                  </.link>
+                </li>
+              </ul>
+            </div>
           </div>
         </div>
       </nav>
@@ -118,25 +123,22 @@ defmodule AshtailWeb.Layouts do
     """
   end
 
-  # On desktop the links are the segments of a control styled like the theme
-  # toggle: 32px segments in a 40px track, the current one on a raised thumb
-  # with violet text. In the mobile dropdown the current one gets a soft fill.
-  @nav_link_base "text-base transition-colors " <>
-                   "sm:flex sm:items-center sm:h-8 sm:!py-0 sm:!px-4 sm:rounded-full " <>
-                   "sm:text-sm sm:border sm:border-transparent "
+  # Desktop nav links: plain text, the current one on a soft violet pill.
+  # With leading-none the text baseline sits 0.375rem (the bottom padding) plus
+  # 0.125em above the link's bottom edge, so the link moves down by exactly that
+  # much to put the baseline on the wordmark's bottom edge.
+  @nav_link_base "inline-block px-3.5 py-1.5 rounded-full text-base leading-none " <>
+                   "transition-colors translate-y-[calc(0.375rem+0.125em)] "
 
   defp nav_link_class(true),
-    do:
-      @nav_link_base <>
-        "font-semibold text-primary bg-base-200 " <>
-        "sm:bg-base-100 sm:dark:bg-base-300 sm:shadow-sm sm:border-base-300 " <>
-        "sm:hover:bg-base-100 sm:dark:hover:bg-base-300 sm:focus:!bg-base-100"
+    do: @nav_link_base <> "font-semibold text-primary bg-primary/10 hover:bg-primary/15"
 
   defp nav_link_class(false),
-    do:
-      @nav_link_base <>
-        "font-medium text-base-content/60 hover:text-base-content " <>
-        "sm:hover:bg-transparent sm:active:!bg-transparent sm:focus:!bg-transparent"
+    do: @nav_link_base <> "font-medium text-base-content/60 hover:text-base-content"
+
+  # Links in the mobile dropdown menu.
+  defp menu_link_class(true), do: "font-semibold text-primary bg-primary/10"
+  defp menu_link_class(false), do: "font-medium text-base-content/70"
 
   @doc """
   Shows the flash group with standard titles and content.
