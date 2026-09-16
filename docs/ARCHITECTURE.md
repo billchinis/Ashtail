@@ -238,7 +238,8 @@ without a broker.
   A new column starts A–Z for names and largest-first for counts, and any
   sort change goes back to page 1. The table component takes `sort_link`,
   `sort_by` and `sort_dir`; columns with a `sort` key get a header link, an
-  `aria-sort` attribute and a faint tint when active.
+  `aria-sort` attribute; the active one shows a violet label and a
+  direction arrow.
 - `get_topic/2` adds configs; `topic_summary/2` is offsets only (used in every
   topic page header).
 - Unknown topic → `reason: :unknown_topic`.

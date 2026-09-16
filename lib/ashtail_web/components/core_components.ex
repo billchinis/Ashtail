@@ -431,7 +431,6 @@ defmodule AshtailWeb.CoreComponents do
               class={[
                 "text-xs font-medium uppercase tracking-wide text-base-content/50",
                 col[:numeric] && "text-right tabular-nums whitespace-nowrap",
-                sorted?(@sort_link, col, @sort_by) && "sm:bg-primary/5",
                 col[:class]
               ]}
             >
@@ -495,7 +494,6 @@ defmodule AshtailWeb.CoreComponents do
                   i > 0 && "max-sm:text-xs max-sm:flex max-sm:items-start max-sm:gap-1",
                   @row_click && "hover:cursor-pointer",
                   col[:numeric] && "text-right tabular-nums whitespace-nowrap",
-                  sorted?(@sort_link, col, @sort_by) && "sm:bg-primary/5",
                   col[:class]
                 ]
               }
@@ -520,8 +518,6 @@ defmodule AshtailWeb.CoreComponents do
   end
 
   defp sortable?(sort_link, col), do: sort_link != nil and col[:sort] != nil
-
-  defp sorted?(sort_link, col, sort_by), do: sortable?(sort_link, col) and col[:sort] == sort_by
 
   defp aria_sort(false, _dir), do: "none"
   defp aria_sort(true, :asc), do: "ascending"
