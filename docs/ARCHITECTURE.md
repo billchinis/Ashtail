@@ -488,9 +488,13 @@ screenshot pass.
 
 - Tailwind 4 with daisyUI 5 components; no hand-rolled widgets.
 - Two themes, **light** and **dark**, with colours taken from the Ashtail
-  logo: deep navy text, an indigo-violet primary and a magenta accent. Light
-  is white sheets on a faint lavender page; dark is a navy-violet ground with
-  a lighter violet primary. Every text/background pair meets WCAG AA. Lists
+  logo: deep indigo text, an electric violet primary and a magenta accent.
+  Light is white sheets on a faint lavender page; dark is a deep purple
+  ground with a lighter violet primary. The logo's violet-to-magenta gradient
+  (`brand-violet` → `brand-magenta` in `@theme`, the same in both themes)
+  marks the top strip, the current nav item and the chosen theme. Nav pills
+  and the theme toggle are both 40px tall so they share a centre line.
+  Every text/background pair meets WCAG AA. Lists
   use hairline separators and headings are serif. First visit is light regardless of OS
   setting; the toggle stores the choice and a small script in
   `root.html.heex` applies it before paint.

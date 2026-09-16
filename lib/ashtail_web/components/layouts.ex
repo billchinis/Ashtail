@@ -40,7 +40,7 @@ defmodule AshtailWeb.Layouts do
 
   def app(assigns) do
     ~H"""
-    <header class="sticky top-0 z-20 bg-base-100/95 backdrop-blur border-b border-base-300 shadow-sm before:block before:h-1 before:bg-gradient-to-r before:from-primary before:to-accent">
+    <header class="sticky top-0 z-20 bg-base-100/95 backdrop-blur border-b border-base-300 shadow-sm before:block before:h-1 before:bg-gradient-to-r before:from-brand-violet before:to-brand-magenta">
       <nav
         aria-label="Main"
         class="max-w-7xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center gap-3 sm:gap-10"
@@ -112,10 +112,14 @@ defmodule AshtailWeb.Layouts do
     """
   end
 
-  @nav_link_base "px-4 py-2 rounded-full text-base sm:text-lg transition-colors "
+  # h-10 matches the theme toggle, so the pills and the toggle share a centre line.
+  @nav_link_base "inline-flex items-center h-10 px-4 rounded-full text-base sm:text-lg transition "
 
   defp nav_link_class(true),
-    do: @nav_link_base <> "font-semibold bg-primary/10 text-primary hover:bg-primary/15"
+    do:
+      @nav_link_base <>
+        "font-semibold text-white bg-gradient-to-r from-brand-violet to-brand-magenta " <>
+        "shadow-sm hover:text-white hover:brightness-110"
 
   defp nav_link_class(false),
     do:
@@ -178,42 +182,42 @@ defmodule AshtailWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center bg-base-200 border border-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full bg-primary/10 left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
+    <div class="card relative flex flex-row items-center h-10 bg-base-200 ring-1 ring-inset ring-base-300 rounded-full">
+      <div class="absolute w-1/3 h-full rounded-full bg-gradient-to-r from-brand-violet to-brand-magenta shadow-sm left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
 
       <button
-        class="flex justify-center p-2.5 cursor-pointer w-1/3"
+        class="relative flex items-center justify-center size-10 cursor-pointer"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
         aria-label="System theme"
       >
         <.icon
           name="hero-computer-desktop"
-          class="size-5 opacity-75 hover:opacity-100 [[data-theme-source=system]_&]:text-primary [[data-theme-source=system]_&]:opacity-100"
+          class="size-5 opacity-75 hover:opacity-100 [[data-theme-source=system]_&]:text-white [[data-theme-source=system]_&]:opacity-100"
         />
       </button>
 
       <button
-        class="flex justify-center p-2.5 cursor-pointer w-1/3"
+        class="relative flex items-center justify-center size-10 cursor-pointer"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
         aria-label="Light theme"
       >
         <.icon
           name="hero-sun"
-          class="size-5 opacity-75 hover:opacity-100 [[data-theme=light]:not([data-theme-source=system])_&]:text-primary [[data-theme=light]:not([data-theme-source=system])_&]:opacity-100"
+          class="size-5 opacity-75 hover:opacity-100 [[data-theme=light]:not([data-theme-source=system])_&]:text-white [[data-theme=light]:not([data-theme-source=system])_&]:opacity-100"
         />
       </button>
 
       <button
-        class="flex justify-center p-2.5 cursor-pointer w-1/3"
+        class="relative flex items-center justify-center size-10 cursor-pointer"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
         aria-label="Dark theme"
       >
         <.icon
           name="hero-moon"
-          class="size-5 opacity-75 hover:opacity-100 [[data-theme=dark]:not([data-theme-source=system])_&]:text-primary [[data-theme=dark]:not([data-theme-source=system])_&]:opacity-100"
+          class="size-5 opacity-75 hover:opacity-100 [[data-theme=dark]:not([data-theme-source=system])_&]:text-white [[data-theme=dark]:not([data-theme-source=system])_&]:opacity-100"
         />
       </button>
     </div>
