@@ -2,12 +2,12 @@
    https://tailwindcss.com/docs/configuration */
 
 @import "tailwindcss" source(none);
-@import "phoenix-colocated/kafka_manager/colocated.css";
+@import "phoenix-colocated/ashtail/colocated.css";
 @source "../css";
 @source "../js";
-@source "../../lib/kafka_manager_web";
+@source "../../lib/ashtail_web";
 /* Required for Tailwind to automatically pick up changes in colocated CSS files in dev */
-@source "../../_build/dev/phoenix-colocated/kafka_manager/*/";
+@source "../../_build/dev/phoenix-colocated/ashtail/*/";
 
 /* A Tailwind plugin that makes "hero-#{ICON}" classes available.
    The heroicons installation itself is managed by your mix.exs */
@@ -18,36 +18,37 @@
   themes: false;
 }
 
-/* daisyUI theme plugin: the "Paper" (light) and "Ink" (dark) palettes.
-  Theme names stay "light" (Paper) and "dark" (Ink) so the toggle, the
-  root-layout script and the `dark:` variant keep working. `prefersdark:
-  false` on both is deliberate: with `true` daisyUI would apply Ink through
-  the OS media query whenever `data-theme` is absent, and a first visit with
-  no stored choice must render Paper regardless of the OS setting. Build your
+/* daisyUI theme plugin: the Ashtail palettes, taken from the logo (deep
+  navy, indigo-violet body, magenta crest, lavender cubes).
+  Theme names stay "light" and "dark" so the toggle, the root-layout script
+  and the `dark:` variant keep working. `prefersdark: false` on both is
+  deliberate: with `true` daisyUI would apply the dark theme through the OS
+  media query whenever `data-theme` is absent, and a first visit with no
+  stored choice must render light regardless of the OS setting. Build your
   own at: https://daisyui.com/theme-generator/ */
 @plugin "daisyui/packages/bundle/daisyui-theme" {
   name: "light";
   default: true;
   prefersdark: false;
   color-scheme: "light";
-  --color-base-100: #FBFAF7;
-  --color-base-200: #F3F1EC;
-  --color-base-300: #E4E0D8;
-  --color-base-content: #1C1B19;
-  --color-primary: #2F4BF5;
+  --color-base-100: #FFFFFF;
+  --color-base-200: #F5F3FB;
+  --color-base-300: #E4DEF3;
+  --color-base-content: #16142E;
+  --color-primary: #6526D9;
   --color-primary-content: #FFFFFF;
-  --color-secondary: #6B6358;
+  --color-secondary: #585274;
   --color-secondary-content: #FFFFFF;
-  --color-accent: #D9480F;
+  --color-accent: #B81FC9;
   --color-accent-content: #FFFFFF;
-  --color-neutral: #2B2A27;
-  --color-neutral-content: #FBFAF7;
-  --color-info: #1D72D8;
+  --color-neutral: #1D1A3B;
+  --color-neutral-content: #F5F3FB;
+  --color-info: #2F5FD8;
   --color-info-content: #FFFFFF;
   --color-success: #1F8A4C;
   --color-success-content: #FFFFFF;
   --color-warning: #B7791F;
-  --color-warning-content: #1C1B19;
+  --color-warning-content: #16142E;
   --color-error: #C9372C;
   --color-error-content: #FFFFFF;
   --radius-selector: 1rem;
@@ -65,19 +66,19 @@
   default: false;
   prefersdark: false;
   color-scheme: "dark";
-  --color-base-100: #1A1917;
-  --color-base-200: #131210;
-  --color-base-300: #34312C;
-  --color-base-content: #ECE8E1;
-  --color-primary: #8C9EFF;
-  --color-primary-content: #0D1240;
-  --color-secondary: #ABA293;
-  --color-secondary-content: #1A1917;
-  --color-accent: #F2884F;
-  --color-accent-content: #1A1917;
-  --color-neutral: #E4DFD6;
-  --color-neutral-content: #1A1917;
-  --color-info: #6AA8F5;
+  --color-base-100: #17142D;
+  --color-base-200: #0F0D20;
+  --color-base-300: #2E2952;
+  --color-base-content: #ECE9F7;
+  --color-primary: #A98BFF;
+  --color-primary-content: #1A0B3D;
+  --color-secondary: #B2ACCF;
+  --color-secondary-content: #17142D;
+  --color-accent: #E77BF5;
+  --color-accent-content: #2A0530;
+  --color-neutral: #E4E0F2;
+  --color-neutral-content: #17142D;
+  --color-info: #7FA6F7;
   --color-info-content: #0A1A2E;
   --color-success: #4CC282;
   --color-success-content: #0B2416;

@@ -1,4 +1,4 @@
-defmodule KafkaManager.AsyncAssertions do
+defmodule Ashtail.AsyncAssertions do
   @moduledoc """
   Waits for an assertion to stop raising instead of sending a fake tick or
   sleeping once and asserting: tests that observe the tail need to wait for the

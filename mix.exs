@@ -1,9 +1,9 @@
-defmodule KafkaManager.MixProject do
+defmodule Ashtail.MixProject do
   use Mix.Project
 
   def project do
     [
-      app: :kafka_manager,
+      app: :ashtail,
       version: "0.1.0",
       elixir: "~> 1.17",
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -20,7 +20,7 @@ defmodule KafkaManager.MixProject do
   # Type `mix help compile.app` for more information.
   def application do
     [
-      mod: {KafkaManager.Application, []},
+      mod: {Ashtail.Application, []},
       extra_applications: [:logger, :runtime_tools]
     ]
   end
@@ -84,10 +84,10 @@ defmodule KafkaManager.MixProject do
     [
       setup: ["deps.get", "assets.setup", "assets.build", "kafka.seed"],
       "assets.setup": ["tailwind.install --if-missing", "esbuild.install --if-missing"],
-      "assets.build": ["compile", "tailwind kafka_manager", "esbuild kafka_manager"],
+      "assets.build": ["compile", "tailwind ashtail", "esbuild ashtail"],
       "assets.deploy": [
-        "tailwind kafka_manager --minify",
-        "esbuild kafka_manager --minify",
+        "tailwind ashtail --minify",
+        "esbuild ashtail --minify",
         "phx.digest"
       ],
       precommit: [

@@ -1,15 +1,15 @@
-defmodule KafkaManagerWeb.SmokeTest do
+defmodule AshtailWeb.SmokeTest do
   @moduledoc """
-  Generic smoke journey: every GET route (see KafkaManagerWeb.RouteList) must
+  Generic smoke journey: every GET route (see AshtailWeb.RouteList) must
   respond 200 and, for LiveViews, survive a connected mount, without writing
   anything at [warning] or [error] level to the log.
   """
-  use KafkaManagerWeb.ConnCase, async: false
+  use AshtailWeb.ConnCase, async: false
 
   import ExUnit.CaptureLog
   import Phoenix.LiveViewTest
 
-  alias KafkaManagerWeb.RouteList
+  alias AshtailWeb.RouteList
 
   @params RouteList.params()
   @routes RouteList.all_routes(@params)

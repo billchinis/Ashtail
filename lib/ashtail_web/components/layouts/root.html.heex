@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="csrf-token" content={get_csrf_token()} />
+    <.live_title default="Ashtail" phx-no-format>{assigns[:page_title]}</.live_title>
+    <link rel="icon" href={~p"/favicon.ico"} sizes="32x32" />
+    <link rel="apple-touch-icon" href={~p"/images/apple-touch-icon.png"} />
+    <meta name="theme-color" content="#6526D9" />
+    <link phx-track-static rel="stylesheet" href={~p"/assets/css/app.css"} />
+    <script defer phx-track-static type="text/javascript" src={~p"/assets/js/app.js"}>
+    </script>
+    <script>
+      (() => {
+        const systemTheme = () => matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+
+        const setTheme = (theme) => {
+          if (theme === "system") {
+            // A user-chosen "system": remember the choice so a reload keeps
+            // following the OS, and mark the source so the OS-change
+            // listener below is allowed to update the page live.
+            localStorage.setItem("phx:theme", "system");
+            document.documentElement.setAttribute("data-theme", systemTheme());
+            document.documentElement.setAttribute("data-theme-source", "system");
+          } else {
+            localStorage.setItem("phx:theme", theme);
+            document.documentElement.setAttribute("data-theme", theme);
+            document.documentElement.setAttribute("data-theme-source", "user");
+          }
+        };
+        if (!document.documentElement.hasAttribute("data-theme")) {
+          const stored = localStorage.getItem("phx:theme");
+          if (stored) {
+            setTheme(stored);
+          } else {
+            // No stored choice: default to light regardless of the OS
+            // setting. Leave data-theme-source unset so the toggle highlights
+            // "light" (not "system") and the prefers-color-scheme listener
+            // below ignores OS changes until the user actually picks "system".
+            document.documentElement.setAttribute("data-theme", "light");
+          }
+        }
+        window.addEventListener("storage", (e) => e.key === "phx:theme" && setTheme(e.newValue || "system"));
+        window.addEventListener("phx:set-theme", (e) => setTheme(e.target.dataset.phxTheme));
+
+        matchMedia("(prefers-color-scheme: dark)").addEventListener("change", (e) => {
+          if (document.documentElement.getAttribute("data-theme-source") === "system") {
+            document.documentElement.setAttribute("data-theme", systemTheme());
+          }
+        });
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen bg-base-200 text-base-content">
+    {@inner_content}
+  </body>
+</html>

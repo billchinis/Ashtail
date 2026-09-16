@@ -2,7 +2,7 @@ import Config
 
 # We don't run a server during test. If one is required,
 # you can enable the server option below.
-config :kafka_manager, KafkaManagerWeb.Endpoint,
+config :ashtail, AshtailWeb.Endpoint,
   http: [ip: {127, 0, 0, 1}, port: 4002],
   secret_key_base: "obh9l7/5KIhVB4ts/Dk7sWdaILvgwwWrs3rNfNXMeqpaUtJgX+YkP4nbRDOsmx2e",
   server: false
@@ -22,9 +22,9 @@ config :phoenix,
   sort_verified_routes_query_params: true
 
 # Kafka connection defaults, overridable by KAFKA_* environment variables.
-config :kafka_manager, :kafka_defaults,
+config :ashtail, :kafka_defaults,
   brokers: "localhost:19092",
-  client_id: "kafka_manager",
+  client_id: "ashtail",
   connect_timeout: 5000,
   request_timeout: 10_000,
   tls: false,

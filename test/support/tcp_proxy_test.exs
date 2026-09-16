@@ -1,4 +1,4 @@
-defmodule KafkaManager.TcpProxyTest do
+defmodule Ashtail.TcpProxyTest do
   @moduledoc """
   Regression: `cut/1` and the async `{:register_sockets, ...}` cast a
   freshly accepted connection sends can be processed in either order. A
@@ -8,7 +8,7 @@ defmodule KafkaManager.TcpProxyTest do
 
   use ExUnit.Case, async: true
 
-  alias KafkaManager.TcpProxy
+  alias Ashtail.TcpProxy
 
   test "a registration that arrives after cut is closed immediately" do
     proxy = start_supervised!({TcpProxy, to: {"localhost", 19_092}})

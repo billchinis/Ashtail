@@ -18,7 +18,7 @@ defmodule Mix.Tasks.Screenshots do
     ensure_playwright!()
     start_server!()
 
-    routes = KafkaManagerWeb.RouteList.all_paths()
+    routes = AshtailWeb.RouteList.all_paths()
     File.rm_rf!(@out_dir)
 
     env = [
@@ -41,11 +41,11 @@ defmodule Mix.Tasks.Screenshots do
     Mix.Task.run("app.config")
 
     endpoint =
-      :kafka_manager
-      |> Application.get_env(KafkaManagerWeb.Endpoint, [])
+      :ashtail
+      |> Application.get_env(AshtailWeb.Endpoint, [])
       |> Keyword.merge(server: true, watchers: [], http: [ip: {127, 0, 0, 1}, port: @port])
 
-    Application.put_env(:kafka_manager, KafkaManagerWeb.Endpoint, endpoint)
+    Application.put_env(:ashtail, AshtailWeb.Endpoint, endpoint)
     Mix.Task.run("app.start")
     wait_for_port!(50)
   end

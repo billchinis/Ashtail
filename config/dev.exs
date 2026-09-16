@@ -6,7 +6,7 @@ import Config
 # The watchers configuration can be used to run external
 # watchers to your application. For example, we can use it
 # to bundle .js and .css sources.
-config :kafka_manager, KafkaManagerWeb.Endpoint,
+config :ashtail, AshtailWeb.Endpoint,
   # Binding to loopback ipv4 address prevents access from other machines.
   # Change to `ip: {0, 0, 0, 0}` to allow access from other machines.
   http: [ip: {0, 0, 0, 0}],
@@ -15,8 +15,8 @@ config :kafka_manager, KafkaManagerWeb.Endpoint,
   debug_errors: true,
   secret_key_base: "o+8xjAG8LR4dLKQSP85ClILxob1XFSgJS5uW9DM7HBybcqPjH8FtzJr3PfVLtC6A",
   watchers: [
-    esbuild: {Esbuild, :install_and_run, [:kafka_manager, ~w(--sourcemap=inline --watch)]},
-    tailwind: {Tailwind, :install_and_run, [:kafka_manager, ~w(--watch)]}
+    esbuild: {Esbuild, :install_and_run, [:ashtail, ~w(--sourcemap=inline --watch)]},
+    tailwind: {Tailwind, :install_and_run, [:ashtail, ~w(--watch)]}
   ]
 
 # ## SSL Support
@@ -43,12 +43,12 @@ config :kafka_manager, KafkaManagerWeb.Endpoint,
 # different ports.
 
 # Enable dev routes for dashboard and mailbox
-config :kafka_manager, dev_routes: true
+config :ashtail, dev_routes: true
 
 # Kafka connection defaults, overridable by KAFKA_* environment variables.
-config :kafka_manager, :kafka_defaults,
+config :ashtail, :kafka_defaults,
   brokers: "localhost:19092",
-  client_id: "kafka_manager",
+  client_id: "ashtail",
   connect_timeout: 5000,
   request_timeout: 10_000,
   tls: false,

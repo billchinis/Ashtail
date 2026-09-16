@@ -7,18 +7,18 @@
 # General application configuration
 import Config
 
-config :kafka_manager,
+config :ashtail,
   generators: [timestamp_type: :utc_datetime]
 
 # Configure the endpoint
-config :kafka_manager, KafkaManagerWeb.Endpoint,
+config :ashtail, AshtailWeb.Endpoint,
   url: [host: "localhost"],
   adapter: Bandit.PhoenixAdapter,
   render_errors: [
-    formats: [html: KafkaManagerWeb.ErrorHTML, json: KafkaManagerWeb.ErrorJSON],
+    formats: [html: AshtailWeb.ErrorHTML, json: AshtailWeb.ErrorJSON],
     layout: false
   ],
-  pubsub_server: KafkaManager.PubSub,
+  pubsub_server: Ashtail.PubSub,
   live_view: [signing_salt: "3TQfUsNA"]
 
 # Configure LiveView
@@ -29,7 +29,7 @@ config :phoenix_live_view,
 # Configure esbuild (the version is required)
 config :esbuild,
   version: "0.25.4",
-  kafka_manager: [
+  ashtail: [
     args:
       ~w(js/app.js --bundle --target=es2022 --outdir=../priv/static/assets/js --external:/fonts/* --external:/images/* --alias:@=.),
     cd: Path.expand("../assets", __DIR__),
@@ -39,7 +39,7 @@ config :esbuild,
 # Configure tailwind (the version is required)
 config :tailwind,
   version: "4.3.0",
-  kafka_manager: [
+  ashtail: [
     args: ~w(
       --input=assets/css/app.css
       --output=priv/static/assets/css/app.css

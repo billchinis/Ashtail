@@ -1,6 +1,6 @@
 # Architecture
 
-This document walks through KafkaManager from boot to pixels: what starts,
+This document walks through Ashtail from boot to pixels: what starts,
 how a request reaches the broker, how the message views read and filter data,
 and how the test and fixture tooling hangs together.
 
@@ -27,16 +27,16 @@ and how the test and fixture tooling hangs together.
 ## 1. Overview
 
 ```
-Browser ──websocket──▶ LiveView (lib/kafka_manager_web/live/*)
+Browser ──websocket──▶ LiveView (lib/ashtail_web/live/*)
                            │  only ever calls
                            ▼
-                  KafkaManager.Kafka  (facade)
+                  Ashtail.Kafka  (facade)
                            │
       ┌──────────┬─────────┼──────────┬──────────────┐
     Topics    Messages   Groups   TopicReader     Filter / JsonPath
       └──────────┴─────────┴──────────┘               (pure)
                            │
-                  KafkaManager.Kafka.Client   ◀── the only module that names :brod / :kpro
+                  Ashtail.Kafka.Client   ◀── the only module that names :brod / :kpro
                            │  short-lived connections, run in supervised tasks
                            ▼
                       Kafka / Redpanda
@@ -71,7 +71,7 @@ when the broker is down; nothing crashes.
 
 ```
 config/                     compile-time and runtime config
-lib/kafka_manager/
+lib/ashtail/
   application.ex            supervision tree, resolves Kafka config at boot
   kafka.ex                  facade used by the web layer
   kafka/
@@ -81,7 +81,7 @@ lib/kafka_manager/
     topic_reader.ex         merged multi-partition reader (Data view)
     filter.ex json_path.ex  pure filter parsing and matching
     broker_error.ex topic.ex partition.ex message.ex group.ex   structs
-lib/kafka_manager_web/
+lib/ashtail_web/
   router.ex endpoint.ex route_list.ex
   live/topic_live/*         topic list and the topic sub-pages
   live/message_live/*       per-partition browser
@@ -117,14 +117,14 @@ docker-compose.yml          local Redpanda
 ### Kafka
 
 Kafka settings are **not** in `runtime.exs`. They're resolved by
-`KafkaManager.Kafka.Config` when the application starts, from environment
-variables layered over per-environment defaults (`config :kafka_manager,
+`Ashtail.Kafka.Config` when the application starts, from environment
+variables layered over per-environment defaults (`config :ashtail,
 :kafka_defaults` in `dev.exs`, `test.exs`, `prod.exs`).
 
 | Variable | Dev / test | Prod |
 | --- | --- | --- |
 | `KAFKA_BROKERS` | `localhost:19092` | required, boot raises if missing |
-| `KAFKA_CLIENT_ID` | `kafka_manager` | `kafka_manager` |
+| `KAFKA_CLIENT_ID` | `ashtail` | `ashtail` |
 | `KAFKA_CONNECT_TIMEOUT_MS` | 5000 | 10000 |
 | `KAFKA_REQUEST_TIMEOUT_MS` | 10000 | 30000 |
 | `KAFKA_TLS` | `false` | `true` |
@@ -151,25 +151,25 @@ options map brod/kpro expect.
 
 ## 6. Boot and supervision
 
-`KafkaManager.Application.start/2`:
+`Ashtail.Application.start/2`:
 
 1. `Kafka.Config.resolve!()` — a bad env var stops the boot here with a clear
    message, before anything else starts.
-2. The result is stored with `Application.put_env(:kafka_manager, :kafka_config, …)`.
-   `KafkaManager.Kafka.config/0` reads it back on every call, which is what lets
+2. The result is stored with `Application.put_env(:ashtail, :kafka_config, …)`.
+   `Ashtail.Kafka.config/0` reads it back on every call, which is what lets
    tests swap brokers at runtime.
 3. Children (`:one_for_one`):
-   - `KafkaManagerWeb.Telemetry`
+   - `AshtailWeb.Telemetry`
    - `DNSCluster`
-   - `Phoenix.PubSub` (`KafkaManager.PubSub`, used by LiveView internals only)
-   - `Task.Supervisor` named `KafkaManager.Kafka.TaskSupervisor`
-   - `KafkaManagerWeb.Endpoint`
+   - `Phoenix.PubSub` (`Ashtail.PubSub`, used by LiveView internals only)
+   - `Task.Supervisor` named `Ashtail.Kafka.TaskSupervisor`
+   - `AshtailWeb.Endpoint`
 
 There is no long-lived Kafka client process.
 
 ## 7. The Kafka layer
 
-### Facade: `KafkaManager.Kafka`
+### Facade: `Ashtail.Kafka`
 
 The only module the web layer touches. Each function injects the current
 config and delegates:
@@ -262,7 +262,7 @@ still shows up).
 
 ## 8. The Data view read engine
 
-`KafkaManager.Kafka.TopicReader.read/3` is the heart of the Data tab. It reads
+`Ashtail.Kafka.TopicReader.read/3` is the heart of the Data tab. It reads
 many partitions and returns one page sorted by timestamp.
 
 ### Options
@@ -325,7 +325,7 @@ pairs), so every page is a shareable link.
 
 ## 9. Filtering
 
-`KafkaManager.Kafka.Filter` is pure: no broker, no process.
+`Ashtail.Kafka.Filter` is pure: no broker, no process.
 
 ### Parsing (`Filter.parse/1`)
 
@@ -452,7 +452,7 @@ canonical paths that leave out defaults. It's unit-tested on its own.
   appends at the bottom with a bounded stream.
 - **GroupLive.Index / Show** — group list with inline lag and the detail page.
 
-### `KafkaManagerWeb.RouteList`
+### `AshtailWeb.RouteList`
 
 Single source of "every page worth visiting". It reads GET routes from the
 router, substitutes seed-backed values for path params (`topic: "orders"`,
@@ -465,8 +465,11 @@ screenshot pass.
 ## 11. UI and styling
 
 - Tailwind 4 with daisyUI 5 components; no hand-rolled widgets.
-- Two themes, **light** ("Paper": warm page, white sheets, hairline lists,
-  serif headings) and **dark** ("Ink"). First visit is light regardless of OS
+- Two themes, **light** and **dark**, with colours taken from the Ashtail
+  logo: deep navy text, an indigo-violet primary and a magenta accent. Light
+  is white sheets on a faint lavender page; dark is a navy-violet ground with
+  a lighter violet primary. Every text/background pair meets WCAG AA. Lists
+  use hairline separators and headings are serif. First visit is light regardless of OS
   setting; the toggle stores the choice and a small script in
   `root.html.heex` applies it before paint.
 - Fonts (Inter, Source Serif 4, JetBrains Mono) are self-hosted from
@@ -529,11 +532,11 @@ mix precommit   # compile --warnings-as-errors, format --check-formatted, credo 
 
 ### Layout
 
-- `test/kafka_manager/kafka/` — unit tests for `Config`, `Client` helpers,
+- `test/ashtail/kafka/` — unit tests for `Config`, `Client` helpers,
   `Topics`, `Messages`, `Groups`, `TopicReader`, `Filter`, `JsonPath`. Most
   are pure and `async: true`; `TopicReader` also has a few regression tests
   against the seeded broker.
-- `test/kafka_manager_web/live/` — one file per user-visible behaviour (topic
+- `test/ashtail_web/live/` — one file per user-visible behaviour (topic
   list, pagination, search, Data view filters, JSON conditions, scan
   limit/stop, tail, produce, group pages, broker failures, navigation, …),
   plus focused regression files. Tests that write to the broker or change app

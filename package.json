@@ -1,5 +1,5 @@
 {
-  "name": "kafka_manager-screenshots",
+  "name": "ashtail-screenshots",
   "private": true,
   "devDependencies": {
     "playwright": "^1.48.0",

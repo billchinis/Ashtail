@@ -1,4 +1,8 @@
-# KafkaManager
+<p align="center">
+  <img src="docs/images/ashtail-256.png" alt="Ashtail" width="160">
+</p>
+
+# Ashtail
 
 A small web UI for poking at a single Kafka cluster while you debug your own
 services. It lists topics, shows partitions, offsets, configs and log dirs,
@@ -32,7 +36,7 @@ The broker is configured from environment variables at boot:
 | Variable | Default (dev/test) | Notes |
 | --- | --- | --- |
 | `KAFKA_BROKERS` | `localhost:19092` | comma-separated `host:port`; required in prod |
-| `KAFKA_CLIENT_ID` | `kafka_manager` | |
+| `KAFKA_CLIENT_ID` | `ashtail` | |
 | `KAFKA_CONNECT_TIMEOUT_MS` | `5000` | prod default 10000 |
 | `KAFKA_REQUEST_TIMEOUT_MS` | `10000` | prod default 30000 |
 | `KAFKA_TLS` | `false` | prod default `true` |

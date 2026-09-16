@@ -1,4 +1,4 @@
-defmodule KafkaManager.LiveViewHelpers do
+defmodule Ashtail.LiveViewHelpers do
   @moduledoc """
   Test-only introspection for a mounted LiveView process. Phoenix.LiveViewTest
   has no public accessor for a view's assigns, and scattering

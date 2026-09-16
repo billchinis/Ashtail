@@ -1,4 +1,4 @@
-defmodule KafkaManager.TcpProxy do
+defmodule Ashtail.TcpProxy do
   @moduledoc """
   A test-owned TCP proxy. Listens on an ephemeral port, forwards every
   connection byte-for-byte to `to`, and can sever every forwarded connection and
