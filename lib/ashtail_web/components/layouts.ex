@@ -43,7 +43,7 @@ defmodule AshtailWeb.Layouts do
     <header class="sticky top-0 z-20 bg-base-100/95 backdrop-blur border-b border-base-300 shadow-sm before:block before:h-1 before:bg-gradient-to-r before:from-primary before:to-accent">
       <nav
         aria-label="Main"
-        class="max-w-6xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center gap-3 sm:gap-10"
+        class="max-w-7xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center gap-3 sm:gap-10"
       >
         <.link navigate={~p"/"} class="order-1 flex items-center gap-3 sm:gap-4">
           <img
@@ -67,7 +67,7 @@ defmodule AshtailWeb.Layouts do
           </div>
           <ul
             tabindex="0"
-            class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-center sm:!gap-0 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
+            class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-center sm:!gap-2 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
           >
             <li>
               <.link
@@ -98,7 +98,7 @@ defmodule AshtailWeb.Layouts do
       </nav>
     </header>
 
-    <main class="max-w-6xl mx-auto px-4 sm:px-8 pt-8 pb-16">
+    <main class="max-w-7xl mx-auto px-4 sm:px-8 pt-8 pb-16">
       {render_slot(@inner_block)}
     </main>
 
@@ -106,13 +106,15 @@ defmodule AshtailWeb.Layouts do
     """
   end
 
-  defp nav_link_class(true) do
-    "text-base text-base-content font-semibold underline decoration-2 " <>
-      "decoration-primary underline-offset-8"
-  end
+  @nav_link_base "px-4 py-2 rounded-full text-base sm:text-lg transition-colors "
+
+  defp nav_link_class(true),
+    do: @nav_link_base <> "font-semibold bg-primary/10 text-primary hover:bg-primary/15"
 
   defp nav_link_class(false),
-    do: "text-base font-medium text-base-content/60 hover:text-base-content"
+    do:
+      @nav_link_base <>
+        "font-medium text-base-content/70 hover:bg-base-200 hover:text-base-content"
 
   @doc """
   Shows the flash group with standard titles and content.
@@ -174,30 +176,30 @@ defmodule AshtailWeb.Layouts do
       <div class="absolute w-1/3 h-full rounded-full bg-base-100 shadow-sm left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        class="flex justify-center p-2.5 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
         aria-label="System theme"
       >
-        <.icon name="hero-computer-desktop-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-computer-desktop" class="size-5 opacity-75 hover:opacity-100" />
       </button>
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        class="flex justify-center p-2.5 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
         aria-label="Light theme"
       >
-        <.icon name="hero-sun-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-sun" class="size-5 opacity-75 hover:opacity-100" />
       </button>
 
       <button
-        class="flex p-2 cursor-pointer w-1/3"
+        class="flex justify-center p-2.5 cursor-pointer w-1/3"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
         aria-label="Dark theme"
       >
-        <.icon name="hero-moon-micro" class="size-4 opacity-75 hover:opacity-100" />
+        <.icon name="hero-moon" class="size-5 opacity-75 hover:opacity-100" />
       </button>
     </div>
     """
