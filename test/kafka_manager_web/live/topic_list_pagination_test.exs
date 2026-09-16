@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.TopicListPaginationTest do
   @moduledoc """
-  AC-3: the topic list paginates with a selectable page size.
+  The topic list paginates with a selectable page size.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

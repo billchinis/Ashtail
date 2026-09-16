@@ -1,13 +1,13 @@
 defmodule KafkaManagerWeb.MessageEmptyValueTest do
   @moduledoc """
-  AC-25: a message with an empty value renders an empty marker.
+  A message with an empty value renders an empty marker.
   """
 
   use KafkaManagerWeb.ConnCase, async: true
 
   import Phoenix.LiveViewTest
 
-  # Page 1 of the Data view lists pay-120 .. pay-071 newest first (AC-24).
+  # Page 1 of the Data view lists pay-120 .. pay-071 newest first.
   @page_1_keys for n <- 120..71//-1, do: "pay-#{String.pad_leading(to_string(n), 3, "0")}"
 
   test "empty-valued rows render the (empty) marker, others render their value", %{conn: conn} do
@@ -37,9 +37,9 @@ defmodule KafkaManagerWeb.MessageEmptyValueTest do
     end
 
     # Of the 4 null-valued messages seeded (N = 30, 60, 90, 120), only 90 and
-    # 120 fall on page 1 (Seed data, AC-25's `given`). This checks the whole
-    # page, not just the two named rows above, so a bug that marks another
-    # row `(empty)` (or fails to mark one of these two) fails here.
+    # 120 fall on page 1. This checks the whole page, not just the two named
+    # rows above, so a bug that marks another row `(empty)` (or fails to mark
+    # one of these two) fails here.
     empty_marked_keys =
       for {key, body} <- rows, elem(value_block(body), 1)[:empty], do: key
 

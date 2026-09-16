@@ -1,20 +1,18 @@
 defmodule KafkaManagerWeb.TopicLive.DataParams do
   @moduledoc """
-  Pure URL <-> params translation for the Data sub-menu (docs/PLAN.md 4.9):
-  page size, the `before`/`after` cursor, and the filter query params (key,
-  value, header, partition; `from`/`to` join them at AC-20, through the same
-  generic pass-through below, needing no further change here). Nothing else
-  builds a Data view URL.
+  Pure URL <-> params translation for the Data sub-menu: page size, the
+  `before`/`after` cursor, and the filter query params (key, value, header,
+  partition, and `from`/`to`, which go through the same generic
+  pass-through below). Nothing else builds a Data view URL.
 
-  (2026-09-12, AC-22) JSON field condition rows (`json[i][path|op|value]`)
-  go through one private normaliser, shared by `parse/1` and `path/4`
-  (docs/PLAN.md 4.11): it accepts either the index map the URL and the form
-  both produce, or the list `parse/1` itself returns, sorts by integer
-  index, drops anything malformed instead of raising, blanks a non-binary
-  field, defaults a blank operator to `"equals"`, and drops (then
-  renumbers) a row with a blank path. The same pass also coerces every
-  scalar filter field to a string, which fixes a real crash: `?key[x]=1`
-  used to reach `Filter.parse/1`'s `Regex.escape/1` with a map.
+  JSON field condition rows (`json[i][path|op|value]`) go through one private
+  normaliser, shared by `parse/1` and `path/4`: it accepts either the index map
+  the URL and the form both produce, or the list `parse/1` itself returns, sorts
+  by integer index, drops anything malformed instead of raising, blanks a
+  non-binary field, defaults a blank operator to `"equals"`, and drops (then
+  renumbers) a row with a blank path. The same pass also coerces every scalar
+  filter field to a string, which fixes a real crash: `?key[x]=1` used to reach
+  `Filter.parse/1`'s `Regex.escape/1` with a map.
   """
 
   use KafkaManagerWeb, :verified_routes
@@ -51,17 +49,17 @@ defmodule KafkaManagerWeb.TopicLive.DataParams do
 
   # A scalar filter field must always reach `Filter.parse/1` as a string,
   # never as the map a malformed query string like `?key[x]=1` produces
-  # (docs/PLAN.md 4.11) — `params[key] || ""` alone does not catch this,
+  # — `params[key] || ""` alone does not catch this,
   # because a map is truthy.
   defp blank_to_string(value) when is_binary(value), do: value
   defp blank_to_string(_value), do: ""
 
-  # The JSON condition rows normaliser (docs/PLAN.md 4.11), private and
-  # shared by `path/4` and `parse/1` within this module. Accepts the index
-  # map the URL and the form both produce, or the list `parse/1` returns;
-  # anything else reads as no rows. Returns an ordered list of `%{"path" =>
-  # .., "op" => .., "value" => ..}` string maps, blank-path rows dropped and
-  # the rest renumbered by their position in the result.
+  # The JSON condition rows normaliser, private and shared by `path/4` and
+  # `parse/1` within this module. Accepts the index map the URL and the form
+  # both produce, or the list `parse/1` returns; anything else reads as no rows.
+  # Returns an ordered list of `%{"path" => .., "op" => .., "value" => ..}`
+  # string maps, blank-path rows dropped and the rest renumbered by their
+  # position in the result.
   @spec normalize_json(term()) :: [%{String.t() => String.t()}]
   defp normalize_json(rows) when is_map(rows) do
     rows
@@ -143,12 +141,12 @@ defmodule KafkaManagerWeb.TopicLive.DataParams do
     |> maybe_put(:to, filter_params["to"])
   end
 
-  # One `json:` entry, last in the query, as a keyword list so the row
-  # order is deterministic (docs/PLAN.md 4.11). `path` and `op` are always
-  # written, even the default `op`, so a shared URL reads without knowing
-  # the defaults. `value` is written only when non-blank and the op is not
-  # `exists`. Runs `filter_params["json"]` through the same normaliser
-  # `parse/1` uses, so this also accepts the raw index map a form submits.
+  # One `json:` entry, last in the query, as a keyword list so the row order is
+  # deterministic. `path` and `op` are always written, even the default `op`, so
+  # a shared URL reads without knowing the defaults. `value` is written only
+  # when non-blank and the op is not `exists`. Runs `filter_params["json"]`
+  # through the same normaliser `parse/1` uses, so this also accepts the raw
+  # index map a form submits.
   defp put_json_conditions(query, filter_params) do
     case normalize_json(filter_params["json"]) do
       [] ->

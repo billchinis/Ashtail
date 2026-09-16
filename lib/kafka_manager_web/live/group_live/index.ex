@@ -1,8 +1,7 @@
 defmodule KafkaManagerWeb.GroupLive.Index do
   @moduledoc """
-  AC-11: the consumer group list, showing every group's raw state, member
-  count and total lag, with an inline expander (PLAN 4.1, P4) revealing
-  per-partition lag.
+  The consumer group list, showing every group's raw state, member count and
+  total lag, with an inline expander revealing per-partition lag.
   """
 
   use KafkaManagerWeb, :live_view
@@ -50,8 +49,8 @@ defmodule KafkaManagerWeb.GroupLive.Index do
     end
   end
 
-  # P4 (PLAN 4.1): the toggle handler re-inserts only the affected row,
-  # looked up from the bounded `:group_index` map built at fetch time.
+  # The toggle handler re-inserts only the affected row, looked up from the
+  # bounded `:group_index` map built at fetch time.
   defp toggle_expanded(socket, id, expanded?) do
     case socket.assigns.group_index[id] do
       nil -> socket
@@ -66,9 +65,9 @@ defmodule KafkaManagerWeb.GroupLive.Index do
   end
 
   @doc """
-  The DECISIONS.md colour mapping for a group's raw Kafka state, as a CSS
-  class: `Stable` green, `PreparingRebalance`/`CompletingRebalance` amber,
-  `Empty` grey, `Dead` red.
+  The colour mapping for a group's raw Kafka state, as a CSS class: `Stable`
+  green, `PreparingRebalance`/`CompletingRebalance` amber, `Empty` grey, `Dead`
+  red.
   """
   def state_class("Stable"), do: "state-stable"
   def state_class("PreparingRebalance"), do: "state-preparing-rebalance"

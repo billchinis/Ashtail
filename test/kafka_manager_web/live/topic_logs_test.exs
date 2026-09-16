@@ -1,7 +1,6 @@
 defmodule KafkaManagerWeb.TopicLogsTest do
   @moduledoc """
-  AC-17: the Logs sub-menu shows log directory usage for every partition
-  replica.
+  The Logs sub-menu shows log directory usage for every partition replica.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

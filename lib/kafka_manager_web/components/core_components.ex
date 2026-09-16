@@ -312,9 +312,9 @@ defmodule KafkaManagerWeb.CoreComponents do
   end
 
   @doc """
-  Renders a page header (docs/DESIGN.md "Type"): an optional eyebrow line,
-  a serif `h1`, an optional subtitle sharing the title's baseline, and an
-  optional actions slot on the right.
+  Renders a page header: an optional eyebrow line, a serif `h1`, an optional
+  subtitle sharing the title's baseline, and an optional actions slot on the
+  right.
 
   ## Examples
 
@@ -350,11 +350,10 @@ defmodule KafkaManagerWeb.CoreComponents do
   end
 
   @doc """
-  Renders every non-message table (docs/PLAN.md P7, docs/DESIGN.md "Tables"):
-  a plain `table` sitting inside a `card bg-base-100 shadow-sm
-  overflow-x-auto` sheet, hairline rows, and a stream-safe empty state as
-  the stream container's first child. Below `sm`, the header hides and each
-  row wraps into a flex line with its first cell full width.
+  Renders every non-message table: a plain `table` sitting inside a `card
+  bg-base-100 shadow-sm overflow-x-auto` sheet, hairline rows, and a stream-safe
+  empty state as the stream container's first child. Below `sm`, the header
+  hides and each row wraps into a flex line with its first cell full width.
 
   ## Examples
 
@@ -378,7 +377,7 @@ defmodule KafkaManagerWeb.CoreComponents do
     default: nil,
     doc:
       "a function from the mapped row item to a map of extra <tr> attributes " <>
-        "(the P5 test hooks and any state-* class go through this)"
+        "(the data-* test hooks and any state-* class go through this)"
 
   attr :empty, :string, default: "No results.", doc: "the empty-state sentence"
 
@@ -392,7 +391,7 @@ defmodule KafkaManagerWeb.CoreComponents do
 
   slot :footer,
     doc:
-      "an optional sheet footer (docs/DESIGN.md \"topic list\" pagination), " <>
+      "an optional sheet footer (e.g. the topic list's pagination), " <>
         "rendered under a hairline inside the same sheet"
 
   def table(assigns) do
@@ -456,12 +455,11 @@ defmodule KafkaManagerWeb.CoreComponents do
                   i == 0 && "max-sm:w-full",
                   # A stacked row's line-2 columns render as `<span
                   # class="sm:hidden">Label </span>value`; when `value` is a
-                  # bigger numeral (docs/PLAN.md "Shared pieces", `lag/1`
-                  # size: :large), inline baseline alignment pulls the label
-                  # down to the numeral's baseline instead of its top (fix run
-                  # item 6). `max-sm:flex max-sm:items-start` pins every
-                  # line-2 column's content to a shared top edge regardless of
-                  # its own font size.
+                  # bigger numeral (`lag/1` size: :large), inline baseline
+                  # alignment pulls the label down to the numeral's baseline
+                  # instead of its top. `max-sm:flex max-sm:items-start` pins
+                  # every line-2 column's content to a shared top edge
+                  # regardless of its own font size.
                   i > 0 && "max-sm:text-xs max-sm:flex max-sm:items-start max-sm:gap-1",
                   @row_click && "hover:cursor-pointer",
                   col[:numeric] && "text-right tabular-nums whitespace-nowrap",

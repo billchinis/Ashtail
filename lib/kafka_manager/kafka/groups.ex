@@ -6,12 +6,12 @@ defmodule KafkaManager.Kafka.Groups do
   offsets and combines them with a single batched `Client.list_offsets/3`
   call (per direction) to compute per-partition and total lag.
 
-  `list_groups/1` (AC-11) and `topic_groups/2` (AC-16) are the same private
-  pipeline (`fetch_groups/2`) with a scope argument, `:all` or
-  `{:topic, name}`, so the two cannot drift apart. In topic scope, a group
-  is kept only if it has committed an offset on that topic or has a member
-  currently assigned to it, and its `partitions`/`total_lag` are computed
-  over that topic's partitions only (docs/PLAN.md 2.6).
+  `list_groups/1` and `topic_groups/2` are the same private pipeline
+  (`fetch_groups/2`) with a scope argument, `:all` or `{:topic, name}`, so the
+  two cannot drift apart. In topic scope, a group is kept only if it has
+  committed an offset on that topic or has a member currently assigned to it,
+  and its `partitions`/`total_lag` are computed over that topic's partitions
+  only.
   """
 
   alias KafkaManager.Kafka.{BrokerError, Client, Config, Group}
@@ -177,7 +177,7 @@ defmodule KafkaManager.Kafka.Groups do
 
   # A group is in `:all` scope unconditionally. In `{:topic, name}` scope it
   # is kept only if it has committed an offset on that topic or currently
-  # has a member assigned to it (docs/PLAN.md 2.6, DECISIONS.md).
+  # has a member assigned to it.
   defp group_in_scope?(_group, _commits, :all), do: true
 
   defp group_in_scope?(group, commits, {:topic, topic}) do

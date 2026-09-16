@@ -5,7 +5,7 @@ defmodule KafkaManager.LiveViewHelpers do
   `:sys.get_state/1` calls across test files couples them directly to
   LiveView's private socket shape. This centralises that one dependency in a
   single, documented place, for the rare assertion that has no rendered
-  signal (docs/notes/builder.md, fix run item 3).
+  signal.
   """
 
   @doc """

@@ -1,8 +1,7 @@
 defmodule KafkaManagerWeb.GroupLive.Show do
   @moduledoc """
-  AC-12: consumer group detail, showing a partition row for every partition
-  the group has committed against, with its committed offset, latest offset
-  and lag.
+  Consumer group detail, showing a partition row for every partition the group
+  has committed against, with its committed offset, latest offset and lag.
   """
 
   use KafkaManagerWeb, :live_view

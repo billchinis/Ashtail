@@ -1,9 +1,8 @@
 defmodule KafkaManagerWeb.TopicDataJsonTextFormTest do
   @moduledoc """
-  AC-26: `contains` and `regex` match a non-string scalar by its JSON text
-  form — a number as its decoded text, a boolean as `true`/`false` — while
-  objects and arrays still never match either operator
-  (docs/PLAN.md 2.5.1, DECISIONS.md "Superseded 2026-09-12").
+  `contains` and `regex` match a non-string scalar by its JSON text form —
+  a number as its decoded text, a boolean as `true`/`false` — while objects
+  and arrays still never match either operator.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

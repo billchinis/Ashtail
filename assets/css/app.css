@@ -18,10 +18,9 @@
   themes: false;
 }
 
-/* daisyUI theme plugin.
-  docs/DESIGN.md "Paper", direction C chosen 2026-09-11. Theme names stay
-  "light" (Paper) and "dark" (Ink) so the toggle, the root-layout script and
-  the `dark:` variant keep working (DESIGN.md Assumption 1). `prefersdark:
+/* daisyUI theme plugin: the "Paper" (light) and "Ink" (dark) palettes.
+  Theme names stay "light" (Paper) and "dark" (Ink) so the toggle, the
+  root-layout script and the `dark:` variant keep working. `prefersdark:
   false` on both is deliberate: with `true` daisyUI would apply Ink through
   the OS media query whenever `data-theme` is absent, and a first visit with
   no stored choice must render Paper regardless of the OS setting. Build your
@@ -96,9 +95,8 @@
   --noise: 0;
 }
 
-/* Self-hosted fonts (docs/DESIGN.md "Type"), copied once from the
-   @fontsource-variable npm packages into priv/static/fonts (docs/PLAN.md
-   9.1). No CDN request; font-display: swap avoids invisible text while the
+/* Self-hosted fonts, copied once from the @fontsource-variable npm packages
+   into priv/static/fonts. No CDN request; font-display: swap avoids invisible text while the
    file loads. */
 @font-face {
   font-family: "Inter";

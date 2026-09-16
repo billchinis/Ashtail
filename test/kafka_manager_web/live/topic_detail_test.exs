@@ -1,7 +1,7 @@
 defmodule KafkaManagerWeb.TopicDetailTest do
   @moduledoc """
-  AC-5: the Partitions and Configs sub-menus show per-partition offsets and
-  the topic configuration.
+  The Partitions and Configs sub-menus show per-partition offsets and the topic
+  configuration.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

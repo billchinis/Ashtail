@@ -1,7 +1,7 @@
 defmodule KafkaManagerWeb.MessageLive.Index do
   @moduledoc """
-  AC-6: the message browser, reading a chosen partition from a chosen offset.
-  AC-9: an optional tail, a LiveView-owned timer that polls for messages
+  The message browser, reading a chosen partition from a chosen offset. It also
+  offers an optional tail, a LiveView-owned timer that polls for messages
   produced after the page opened and appends them to the stream in place.
   """
 
@@ -136,8 +136,8 @@ defmodule KafkaManagerWeb.MessageLive.Index do
     end
   end
 
-  # P4 (PLAN 4.1): the toggle handler re-inserts only the affected row,
-  # looked up from the bounded `:message_index` map built at fetch time.
+  # The toggle handler re-inserts only the affected row, looked up from the
+  # bounded `:message_index` map built at fetch time.
   defp toggle_expanded(socket, offset, expanded?) do
     case socket.assigns.message_index[offset] do
       nil -> socket
@@ -173,8 +173,8 @@ defmodule KafkaManagerWeb.MessageLive.Index do
   defp parse_page_size(page_size) when page_size in ["20", "50"], do: String.to_integer(page_size)
   defp parse_page_size(_), do: @default_page_size
 
-  # PLAN 4.5: tailing?, tail_offset and tail_ref are UI-mode assigns, not URL
-  # state, so toggling never `push_patch`es.
+  # tailing?, tail_offset and tail_ref are UI-mode assigns, not URL state, so
+  # toggling never `push_patch`es.
   defp toggle_tail(socket, true) do
     tail_offset = socket.assigns.latest || socket.assigns.offset
     tail_ref = if connected?(socket), do: schedule_tail(), else: nil
@@ -209,15 +209,14 @@ defmodule KafkaManagerWeb.MessageLive.Index do
 
   defp append_tail_messages(socket, []), do: socket
 
-  # `:message_index` is a lookup table for what is currently on screen
-  # (PLAN 4.1, P4 — "bounded by page size"), not an ever-growing log: every
-  # tick merges in the new messages, then the oldest entries beyond
-  # `page_size` are dropped so a long-running tail does not grow the
-  # LiveView's heap (values included) without bound. The `:messages` stream
-  # is trimmed to the same window (`limit: -page_size` keeps the most
-  # recent `page_size` rows, evicting the oldest), so the expander keeps
-  # working for exactly what is on screen and never for a row that has
-  # scrolled off.
+  # `:message_index` is a lookup table for what is currently on screen (bounded
+  # by page size), not an ever-growing log: every tick merges in the new
+  # messages, then the oldest entries beyond `page_size` are dropped so a
+  # long-running tail does not grow the LiveView's heap (values included)
+  # without bound. The `:messages` stream is trimmed to the same window (`limit:
+  # -page_size` keeps the most recent `page_size` rows, evicting the oldest), so
+  # the expander keeps working for exactly what is on screen and never for a row
+  # that has scrolled off.
   defp append_tail_messages(socket, messages) do
     page_size = socket.assigns.page_size
     index_additions = Map.new(messages, &{&1.offset, &1})

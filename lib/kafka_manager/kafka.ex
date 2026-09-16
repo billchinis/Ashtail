@@ -109,11 +109,10 @@ defmodule KafkaManager.Kafka do
   def read_topic(name, opts \\ []), do: TopicReader.read(config(), name, opts)
 
   @doc """
-  Parses the Data sub-menu's filter query params into a `%Filter{}`. Pure,
-  no broker access. `params["json"]` (2026-09-12, AC-22) is the ordered list
-  of JSON field condition rows `DataParams` normalises; a row error is keyed
-  `"json-<i>"`, `i` its 0-based position. See
-  `KafkaManager.Kafka.Filter.parse/1`.
+  Parses the Data sub-menu's filter query params into a `%Filter{}`. Pure, no
+  broker access. `params["json"]` is the ordered list of JSON field condition
+  rows `DataParams` normalises; a row error is keyed `"json-<i>"`, `i` its
+  0-based position. See `KafkaManager.Kafka.Filter.parse/1`.
   """
   @spec parse_filter(map()) :: {:ok, Filter.t()} | {:error, %{String.t() => String.t()}}
   def parse_filter(params), do: Filter.parse(params)

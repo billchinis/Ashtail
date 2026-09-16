@@ -1,7 +1,7 @@
 defmodule KafkaManagerWeb.ProduceTest do
   @moduledoc """
-  AC-10: producing a message through the form writes it to the chosen
-  partition, and the offset it reports is where the message can be browsed.
+  Producing a message through the form writes it to the chosen partition, and
+  the offset it reports is where the message can be browsed.
   """
 
   use KafkaManagerWeb.ConnCase, async: false

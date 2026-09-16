@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.MessageBrowserPagingTest do
   @moduledoc """
-  AC-7: the message browser pages forwards and backwards and changes page size.
+  The message browser pages forwards and backwards and changes page size.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

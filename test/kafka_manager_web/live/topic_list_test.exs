@@ -1,7 +1,6 @@
 defmodule KafkaManagerWeb.TopicListTest do
   @moduledoc """
-  AC-2: the topic list shows partition count, replication factor and message
-  count.
+  The topic list shows partition count, replication factor and message count.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

@@ -53,7 +53,7 @@ ensure_topic_config() {
 # (called as `CONTENT_CHECK_FN TOPIC`) also returns true. The content check
 # exists because per-partition counts alone cannot tell the old
 # same-batch-timestamp `notifications` data from the fixed interleaved order
-# AC-18 needs: both lay out as 12 partitions x 4 messages.
+# the Data view tests need: both lay out as 12 partitions x 4 messages.
 topic_layout_ok() {
   local name="$1" partitions="$2" per_partition="$3" content_check="${4:-}"
   local n=0 count
@@ -154,7 +154,7 @@ produce_lines_to_partition() {
 }
 
 # payments_content_ok NAME: true only if partition 0's first 10 offsets hold
-# the reshaped content (AC-22): offset 0 is key pay-001 with a JSON value
+# the reshaped content: offset 0 is key pay-001 with a JSON value
 # carrying "customer":{"id":"cust-001", and offset 9 is key pay-010 with the
 # plain-text legacy-export value. Distinguishes the reshape from the old
 # key-hash, flat-JSON layout, which both lay out as 3 partitions x 40
@@ -177,7 +177,7 @@ payments_content_ok() {
 
 # produce_payments_partition PARTITION < lines formatted as "key<TAB>value".
 # Like produce_lines_to_partition, but with -Z (empty values become
-# tombstones, AC-22's 4 null-value rows). Not folded into
+# tombstones: the topic's 4 null-value rows). Not folded into
 # produce_lines_to_partition itself: orders never produces a null value.
 produce_payments_partition() {
   local partition="$1"
@@ -185,7 +185,7 @@ produce_payments_partition() {
 }
 
 # payment_value N: prints one "pay-NNN<TAB>value" line for the reshaped
-# `payments` topic (AC-22, "Seed changes required ... JSON field filter").
+# `payments` topic, which exercises the JSON field filter.
 # N divisible by 10 is not JSON: N mod 30 = 10 is plain text, N mod 30 = 20
 # is JSON truncated before its closing brace, N mod 30 = 0 is null (an empty
 # value, made a tombstone by -Z). Every other N is one line of valid nested
@@ -238,8 +238,8 @@ payment_value() {
 # consuming its 40 messages from the start yields keys pay-(40p+1)..
 # pay-(40p+40) in offset order, no value longer than 199 characters, and
 # every timestamp in partition p is strictly lower than every timestamp in
-# partition p + 1 (AC-22..AC-24 need a real cross-partition newest-first
-# order, not an accident of production speed).
+# partition p + 1 (the JSON filter tests need a real cross-partition
+# newest-first order, not an accident of production speed).
 verify_payments() {
   local p n key ts value expected_key len
   local prev_max=-1 this_min this_max
@@ -279,7 +279,7 @@ verify_payments() {
 # notifications_partition0_ok NAME: true only if partition 0 holds, at
 # offsets 0..3, values starting "Notification 1:", "Notification 13:",
 # "Notification 25:", "Notification 37:" with channel headers email, email,
-# sms, email (AC-18's fixed interleaved order: message N sits at partition
+# sms, email (the fixed interleaved order: message N sits at partition
 # ((N - 1) * 5) mod 12, so partition 0 is exactly N = 1, 13, 25, 37).
 notifications_partition0_ok() {
   local name="$1" actual expected
@@ -311,8 +311,8 @@ produce_notifications() {
 
 # verify_notifications_timestamps: fails loudly unless consuming all 48
 # `notifications` messages yields 48 distinct millisecond timestamps whose
-# ascending order is N = 1..48 (AC-18, AC-19, AC-20 need a real per-message
-# timestamp merge, not same-batch ties).
+# ascending order is N = 1..48 (the Data view's merge, filter and time-range
+# tests need a real per-message timestamp merge, not same-batch ties).
 verify_notifications_timestamps() {
   local value ts n prev=-1 count=0
   declare -A ts_by_n
@@ -416,7 +416,7 @@ verify_payments
 
 if [ "$(topic_message_count notifications)" -eq 0 ]; then
   # Plain-text, null-key values, produced one at a time (own CreateTime each)
-  # in the fixed interleaved order AC-18/AC-19/AC-20 need.
+  # in the fixed interleaved order the Data view tests need.
   produce_notifications
   echo "notifications: produced 48 messages (4 per partition, interleaved order)"
 fi

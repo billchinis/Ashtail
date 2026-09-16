@@ -1,7 +1,7 @@
 defmodule KafkaManagerWeb.NavigationTest do
   @moduledoc """
-  Revised AC-15: every view is reachable by following links, and every topic
-  page shows the five sub-menus with a correctly marked active tab.
+  Every view is reachable by following links, and every topic page shows the
+  five sub-menus with a correctly marked active tab.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

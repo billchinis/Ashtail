@@ -1,14 +1,14 @@
 defmodule KafkaManagerWeb.TopicDataScanLimitTest do
   @moduledoc """
-  AC-27: a filtered scan on the Data sub-menu stops at the scan limit and a
-  "Scan more" control continues it from where it stopped, keeping the rows
-  already found and the running count (docs/PLAN.md 4.9). The limit is set
-  to 100 messages for this test through `:data_scan_budget`, since no seed
-  topic is anywhere near the production default.
+  A filtered scan on the Data sub-menu stops at the scan limit and a "Scan more"
+  control continues it from where it stopped, keeping the rows already found and
+  the running count. The limit is set to 100 messages for this test through
+  `:data_scan_budget`, since no seed topic is anywhere near the production
+  default.
 
   `orders` has 6 partitions x 100 messages. With a limit of 100 every read
-  gives each partition a fair share of 16 offsets (docs/PLAN.md 2.4), so a
-  read checks 96 messages and stops, and the whole topic takes 7 reads.
+  gives each partition a fair share of 16 offsets, so a read checks 96
+  messages and stops, and the whole topic takes 7 reads.
   """
 
   use KafkaManagerWeb.ConnCase, async: false
@@ -48,9 +48,8 @@ defmodule KafkaManagerWeb.TopicDataScanLimitTest do
     {html, reads} = scan_until_done(view, html)
     assert reads == 7
     # Partition 0's matches wait, buffered, until the other partitions
-    # reach their floor, and every continuation reads them again (docs/
-    # PLAN.md 2.4, "Range and links"), so the count exceeds the 600 messages
-    # of the topic.
+    # reach their floor, and every continuation reads them again, so the
+    # count exceeds the 600 messages of the topic.
     assert scanned(html) >= 600
     assert keys(html) == Enum.map(59..50//-1, &order_key/1)
     assert Enum.map(rows(html), & &1.offset) == Enum.to_list(58..49//-1)

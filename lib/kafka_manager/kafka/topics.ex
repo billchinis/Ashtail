@@ -69,7 +69,7 @@ defmodule KafkaManager.Kafka.Topics do
   @doc """
   A single topic's per-partition offsets only, with no broker configuration
   fetched. This is `get_topic/2` minus `DescribeConfigs`: the summary every
-  topic sub-menu header renders (docs/PLAN.md P6).
+  topic sub-menu header renders.
   """
   @spec topic_summary(Config.t(), String.t()) :: {:ok, Topic.t()} | {:error, BrokerError.t()}
   def topic_summary(%Config{} = config, name) when is_binary(name) do

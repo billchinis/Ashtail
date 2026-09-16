@@ -1,7 +1,7 @@
 defmodule KafkaManagerWeb.TopicLive.Partitions do
   @moduledoc """
-  AC-5: the Partitions sub-menu, showing each partition's leader, replicas
-  and earliest/latest offset.
+  The Partitions sub-menu, showing each partition's leader, replicas and
+  earliest/latest offset.
   """
 
   use KafkaManagerWeb, :live_view

@@ -67,13 +67,13 @@ defmodule KafkaManager.Kafka.Client do
   end
 
   @doc """
-  Earliest, latest, or (2026-09-11, AC-20) the offset of the first message
-  at or after a given UTC millisecond timestamp, for the given
-  `{topic, partition}` pairs, batched into one `ListOffsets` request per
-  partition leader (never one connection per partition).
+  Earliest, latest, or the offset of the first message at or after a given UTC
+  millisecond timestamp, for the given `{topic, partition}` pairs, batched into
+  one `ListOffsets` request per partition leader (never one connection per
+  partition).
 
   For `{:timestamp, ms}`, a partition with no message at or after `ms`
-  comes back as `nil` in the map, never as the broker's raw `-1` (1.4).
+  comes back as `nil` in the map, never as the broker's raw `-1`.
   `:earliest` and `:latest` are unaffected.
   """
   @spec list_offsets(
@@ -93,7 +93,7 @@ defmodule KafkaManager.Kafka.Client do
       when is_list(partitions) and is_integer(ms) do
     # A negative millisecond timestamp (a `from`/`to` before the Unix epoch)
     # must never reach the wire as-is: `-1` and `-2` are the ListOffsets
-    # sentinels for "latest" and "earliest" (1.4), so an unclamped `-1` here
+    # sentinels for "latest" and "earliest", so an unclamped `-1` here
     # would silently be read as "latest" instead of "the start of time".
     which = {:timestamp, max(ms, 0)}
     run(config, fn -> fetch_list_offsets(config, partitions, which) end)
@@ -131,10 +131,9 @@ defmodule KafkaManager.Kafka.Client do
     end
   end
 
-  # `partition` (2026-09-11) is the partition this fetch asked for, not
-  # something the message record itself carries; the merged Data view needs
-  # it on every `%Message{}` for ordering, row identity and the "partition 7"
-  # label (docs/PLAN.md 1.2).
+  # `partition` is the partition this fetch asked for, not something the message
+  # record itself carries; the merged Data view needs it on every `%Message{}`
+  # for ordering, row identity and the "partition 7" label.
   defp to_message(record, partition) do
     %Message{
       offset: kafka_message(record, :offset),
@@ -496,13 +495,13 @@ defmodule KafkaManager.Kafka.Client do
   end
 
   @doc """
-  Describes the given group ids against the coordinator endpoint they were
-  found on (the `coordinator` hint from `list_groups/1`), via
+  Describes the given group ids against the coordinator endpoint they were found
+  on (the `coordinator` hint from `list_groups/1`), via
   `:brod.describe_groups/3`. `assigned_topics` is decoded from each live
-  member's `member_assignment` bytes (brod's DescribeGroups only
-  auto-decodes a field literally named `assignment`, and this one is named
-  `member_assignment`) — used by AC-16 to keep a group with a live member on
-  a topic it has not committed to yet.
+  member's `member_assignment` bytes (brod's DescribeGroups only auto-decodes a
+  field literally named `assignment`, and this one is named `member_assignment`)
+  — used by the topic's Consumer Groups view to keep a group with a live member
+  on a topic it has not committed to yet.
   """
   @spec describe_groups(Config.t(), term(), [String.t()]) ::
           {:ok,
@@ -579,7 +578,8 @@ defmodule KafkaManager.Kafka.Client do
   Committed offsets for every partition a group has committed against, via
   `:brod.fetch_committed_offsets/3`. A partition the group never committed
   to is simply absent from the returned map — the caller decides how to
-  treat that (AC-11/AC-12 use the partition's earliest offset).
+  treat that (the group list and group detail use the partition's earliest
+  offset).
   """
   @spec fetch_committed_offsets(Config.t(), String.t()) ::
           {:ok, %{{String.t(), non_neg_integer()} => integer()}} | {:error, BrokerError.t()}
@@ -628,7 +628,7 @@ defmodule KafkaManager.Kafka.Client do
   # A partition missing from `leaders` (e.g. it moved, or was dropped,
   # between `metadata/1` and this call) would raise via `Map.fetch!/2`; this
   # is a readable `%BrokerError{}` instead, the same crash class the
-  # log-dirs fix removed (fix run item 6). Exposed (`@doc false`) so the
+  # log-dirs fix removed. Exposed (`@doc false`) so the
   # translation is unit-testable with a fabricated `leaders` map: the live
   # single-broker Redpanda in dev can never produce a partition missing from
   # its own metadata's leader list.
@@ -679,7 +679,7 @@ defmodule KafkaManager.Kafka.Client do
   # A leader id missing from `brokers` (e.g. it went offline between the
   # partition metadata and this request) would raise via `Map.fetch!/2`;
   # this is a readable `%BrokerError{}` instead, the same crash class the
-  # log-dirs fix removed (fix run item 6). Exposed (`@doc false`) so the
+  # log-dirs fix removed. Exposed (`@doc false`) so the
   # translation is unit-testable with a fabricated `brokers` map.
   @doc false
   @spec list_offsets_from_leader(

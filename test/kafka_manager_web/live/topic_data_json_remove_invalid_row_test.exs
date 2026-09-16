@@ -1,9 +1,8 @@
 defmodule KafkaManagerWeb.TopicDataJsonRemoveInvalidRowTest do
   @moduledoc """
-  Fix run item 7: a non-binary `row` on `remove_json_condition` (a crafted
-  payload, since `Integer.parse/1` requires a binary) must not crash the
-  page. It is a no-op, the same as the offset handlers'
-  `MessageBrowserInvalidInputTest` model.
+  A non-binary `row` on `remove_json_condition` (a crafted payload, since
+  `Integer.parse/1` requires a binary) must not crash the page. It is a no-op,
+  the same as the offset handlers' `MessageBrowserInvalidInputTest` model.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

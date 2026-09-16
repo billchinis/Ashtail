@@ -1,8 +1,8 @@
 defmodule KafkaManagerWeb.TopicDataTailTest do
   @moduledoc """
-  AC-21: the Data sub-menu tails new messages at the top, active filters
-  apply to tailed rows, and a broker lost mid-tail renders the existing
-  page-level error and stops the tail (docs/PLAN.md 4.10).
+  The Data sub-menu tails new messages at the top, active filters apply to
+  tailed rows, and a broker lost mid-tail renders the existing page-level error
+  and stops the tail.
   """
 
   use KafkaManagerWeb.ConnCase, async: false

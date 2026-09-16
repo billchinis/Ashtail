@@ -10,7 +10,7 @@ defmodule KafkaManager.BrokerHelpers do
   alias KafkaManager.Kafka.Config
 
   @doc """
-  A thin wrapper over `Kafka.produce/3`, used by AC-9's test to write the
+  A thin wrapper over `Kafka.produce/3`, used by the tail test to write the
   `tail-probe` message.
   """
   @spec produce_probe(String.t(), non_neg_integer(), map()) ::

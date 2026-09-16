@@ -1,7 +1,6 @@
 defmodule KafkaManagerWeb.GroupListTest do
   @moduledoc """
-  AC-11: the consumer group list shows state, total lag and inline
-  per-partition lag.
+  The consumer group list shows state, total lag and inline per-partition lag.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

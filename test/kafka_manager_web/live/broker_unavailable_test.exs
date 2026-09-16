@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.BrokerUnavailableTest do
   @moduledoc """
-  AC-13: an unreachable broker renders an error instead of crashing.
+  An unreachable broker renders an error instead of crashing.
   """
 
   use KafkaManagerWeb.ConnCase, async: false

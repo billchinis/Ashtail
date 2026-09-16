@@ -1,12 +1,11 @@
 defmodule KafkaManagerWeb.TopicDataJsonErrorByIdTest do
   @moduledoc """
-  Fix run item 1: a JSON condition row's error is looked up by the row's id,
-  not by its display position (docs/PLAN.md 4.11). After an apply leaves a
-  row error in place, removing an earlier row (a client-side action that
-  never patches or re-applies, docs/PLAN.md 4.11) shifts every later row's
-  position down by one. The error must stay on the row that caused it,
-  identified by id, even though its `data-filter-error` label (the row's
-  current 0-based position) changes to match.
+  A JSON condition row's error is looked up by the row's id, not by its display
+  position. After an apply leaves a row error in place, removing an earlier row
+  (a client-side action that never patches or re-applies) shifts every later
+  row's position down by one. The error must stay on the row that caused it,
+  identified by id, even though its `data-filter-error` label (the row's current
+  0-based position) changes to match.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

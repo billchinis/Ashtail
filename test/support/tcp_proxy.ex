@@ -1,9 +1,9 @@
 defmodule KafkaManager.TcpProxy do
   @moduledoc """
-  AC-14's test-owned TCP proxy. Listens on an ephemeral port, forwards every
-  connection byte-for-byte to `to`, and can sever every forwarded connection
-  and stop listening on demand, without ever touching the shared Redpanda
-  container other tests depend on.
+  A test-owned TCP proxy. Listens on an ephemeral port, forwards every
+  connection byte-for-byte to `to`, and can sever every forwarded connection and
+  stop listening on demand, without ever touching the shared Redpanda container
+  other tests depend on.
   """
 
   use GenServer

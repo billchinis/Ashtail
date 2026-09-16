@@ -17,7 +17,7 @@ defmodule KafkaManager.Kafka.Messages do
   @doc """
   See `KafkaManager.Kafka.fetch_messages/4` for the public shape. Resolves
   `earliest`/`latest`, clamps `from_offset` into range, then reads
-  `read_range/5` up to `min(latest, from_offset + limit)` (docs/PLAN.md 2.3).
+  `read_range/5` up to `min(latest, from_offset + limit)`.
   """
   @spec fetch_messages(Config.t(), String.t(), non_neg_integer(), integer(), pos_integer()) ::
           {:ok, %{messages: [Message.t()], earliest: integer(), latest: integer()}}
@@ -42,15 +42,14 @@ defmodule KafkaManager.Kafka.Messages do
   end
 
   @doc """
-  Reads messages in the half-open offset range `[from, to)` for one
-  partition, in ascending offset order (docs/PLAN.md 2.3). Drops anything
-  below `from` and anything at or above `to`, because a fetch may return the
-  start or the tail of a whole batch. Doubles `max_bytes` (starting at 1 MB,
-  capped at 8 MB) and retries once whenever a fetch comes back empty short of
-  `to`; if it is still empty after the retry, the range is treated as read to
-  its end, which is correct for compaction gaps. This is the only read path
-  `KafkaManager.Kafka.TopicReader` uses (it never calls `Client.fetch/5`
-  directly).
+  Reads messages in the half-open offset range `[from, to)` for one partition,
+  in ascending offset order. Drops anything below `from` and anything at or
+  above `to`, because a fetch may return the start or the tail of a whole batch.
+  Doubles `max_bytes` (starting at 1 MB, capped at 8 MB) and retries once
+  whenever a fetch comes back empty short of `to`; if it is still empty after
+  the retry, the range is treated as read to its end, which is correct for
+  compaction gaps. This is the only read path `KafkaManager.Kafka.TopicReader`
+  uses (it never calls `Client.fetch/5` directly).
   """
   @spec read_range(Config.t(), String.t(), non_neg_integer(), integer(), integer()) ::
           {:ok, [Message.t()]} | {:error, BrokerError.t()}
@@ -146,7 +145,7 @@ defmodule KafkaManager.Kafka.Messages do
 
   @doc """
   See `KafkaManager.Kafka.produce/3` for the public shape. `partition == nil`
-  resolves to partition `0` — no AC exercises the "auto" option with more
+  resolves to partition `0` — no test exercises the "auto" option with more
   than one partition, and `scratch` (the only topic tests write to) has one.
   """
   @spec produce(Config.t(), String.t(), non_neg_integer() | nil, map()) ::

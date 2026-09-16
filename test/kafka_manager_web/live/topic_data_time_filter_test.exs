@@ -1,12 +1,11 @@
 defmodule KafkaManagerWeb.TopicDataTimeFilterTest do
   @moduledoc """
-  AC-20: the Data sub-menu filters by a from/to time range, both ends
-  inclusive to the millisecond, combined with a header filter, and keeps
-  every applied filter in the URL (docs/PLAN.md 2.4, 2.5, 4.9). The
-  range's bounds are read from the broker at test time, through the app's
-  own rendered `data-timestamp` values, never hard-coded: rpk cannot set a
-  record timestamp (docs/PLAN.md 7.1). The filter bar offers no time-range
-  preset control, only From and To.
+  The Data sub-menu filters by a from/to time range, both ends inclusive to
+  the millisecond, combined with a header filter, and keeps every applied
+  filter in the URL. The range's bounds are read from the broker at test
+  time, through the app's own rendered `data-timestamp` values, never
+  hard-coded: rpk cannot set a record timestamp. The filter bar offers no
+  time-range preset control, only From and To.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

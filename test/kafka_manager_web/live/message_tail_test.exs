@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.MessageTailTest do
   @moduledoc """
-  AC-9: tailing appends messages produced after the browser is open.
+  Tailing appends messages produced after the browser is open.
   """
 
   use KafkaManagerWeb.ConnCase, async: false

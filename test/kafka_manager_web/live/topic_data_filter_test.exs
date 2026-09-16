@@ -1,11 +1,10 @@
 defmodule KafkaManagerWeb.TopicDataFilterTest do
   @moduledoc """
-  AC-19: the Data sub-menu filters key, value and header as plain text or
-  regular expression, combined with AND with the partition filter, across
-  the whole topic (docs/PLAN.md 2.4, 2.5, 4.9). Every submission that
-  carries an active filter starts an async scan (docs/PLAN.md 6.6), so each
-  assertion below waits for it through `render_async/2` and reads the
-  rendered scan status before reading the rows.
+  The Data sub-menu filters key, value and header as plain text or regular
+  expression, combined with AND with the partition filter, across the whole
+  topic. Every submission that carries an active filter starts an async
+  scan, so each assertion below waits for it through `render_async/2` and
+  reads the rendered scan status before reading the rows.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

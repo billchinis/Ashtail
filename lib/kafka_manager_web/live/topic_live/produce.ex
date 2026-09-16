@@ -1,11 +1,10 @@
 defmodule KafkaManagerWeb.TopicLive.Produce do
   @moduledoc """
-  AC-10: a form for producing one message to a chosen partition of a topic,
-  targeting a specific partition (or letting the broker choose), a key (or
-  an explicit null key), a value, headers and a timestamp. On success it
-  renders a confirmation naming the partition and the assigned offset. The
-  produce path itself (`Kafka.produce/3`) was built at AC-9; this adds only
-  the form.
+  A form for producing one message to a chosen partition of a topic, targeting a
+  specific partition (or letting the broker choose), a key (or an explicit null
+  key), a value, headers and a timestamp. On success it renders a confirmation
+  naming the partition and the assigned offset. The produce path itself is
+  `Kafka.produce/3`; this module adds only the form.
   """
 
   use KafkaManagerWeb, :live_view

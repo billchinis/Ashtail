@@ -1,7 +1,7 @@
 defmodule KafkaManagerWeb.TopicLive.Index do
   @moduledoc """
-  AC-2: the topic list, showing every topic's partition count, replication
-  factor and message count for the current page.
+  The topic list, showing every topic's partition count, replication factor and
+  message count for the current page.
   """
 
   use KafkaManagerWeb, :live_view

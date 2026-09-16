@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.GroupDetailTest do
   @moduledoc """
-  AC-12: consumer group detail shows lag for every assigned partition.
+  Consumer group detail shows lag for every assigned partition.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

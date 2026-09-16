@@ -1,8 +1,8 @@
 defmodule KafkaManagerWeb.TopicLive.Groups do
   @moduledoc """
-  AC-16: the Consumer Groups sub-menu, listing every consumer group that
-  reads this topic (committed an offset on it, or has a live member
-  assigned to it) with its state and its lag on this topic only. See
+  The Consumer Groups sub-menu, listing every consumer group that reads this
+  topic (committed an offset on it, or has a live member assigned to it) with
+  its state and its lag on this topic only. See
   `KafkaManager.Kafka.topic_groups/1`.
   """
 
@@ -32,9 +32,8 @@ defmodule KafkaManagerWeb.TopicLive.Groups do
     {:noreply, socket}
   end
 
-  # Two fetches per docs/PLAN.md P3: `broker_error` becomes the first of
-  # the two that fails, or `nil` when both succeed. One success does not
-  # clear the other's error.
+  # Two fetches: `broker_error` becomes the first of the two that fails, or
+  # `nil` when both succeed. One success does not clear the other's error.
   defp fetch(socket, name) do
     topic_result = Kafka.topic_summary(name)
     groups_result = Kafka.topic_groups(name)

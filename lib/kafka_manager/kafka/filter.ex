@@ -1,23 +1,21 @@
 defmodule KafkaManager.Kafka.Filter do
   @moduledoc """
   A Data sub-menu filter: one condition each for key, value and header, an
-  optional partition, and an ordered list of JSON field conditions
-  (docs/PLAN.md 2.5, 2.5.1). Pure — no broker access, no config. `parse/1`
-  compiles every regular expression once; the compiled filter is then
-  passed unchanged into the scan task's closure and to every tail tick,
-  never recompiled per message.
+  optional partition, and an ordered list of JSON field conditions. Pure — no
+  broker access, no config. `parse/1` compiles every regular expression once;
+  the compiled filter is then passed unchanged into the scan task's closure and
+  to every tail tick, never recompiled per message.
 
-  `from`/`to` (AC-20) are the inclusive UTC time range, to the millisecond.
-  They narrow the read window through `ListOffsets` in `TopicReader`
-  (docs/PLAN.md 2.4), but `match/2` also re-checks them against every
-  message's own timestamp: a bound only limits where reading starts, not
-  which messages qualify.
+  `from`/`to` are the inclusive UTC time range, to the millisecond. They narrow
+  the read window through `ListOffsets` in `TopicReader`, but `match/2` also
+  re-checks them against every message's own timestamp: a bound only limits
+  where reading starts, not which messages qualify.
 
-  JSON field conditions (2026-09-12, AC-22) test a path into the message
-  value, decoded as JSON at most once per message and only when at least
-  one condition is present. `KafkaManager.Kafka.JsonPath` owns the path
-  grammar and lookup; this module owns parsing the row (operator, value,
-  compiling `contains`/`regex`) and evaluating it against the decoded term.
+  JSON field conditions test a path into the message value, decoded as JSON at
+  most once per message and only when at least one condition is present.
+  `KafkaManager.Kafka.JsonPath` owns the path grammar and lookup; this module
+  owns parsing the row (operator, value, compiling `contains`/`regex`) and
+  evaluating it against the decoded term.
   """
 
   alias KafkaManager.Kafka.{JsonPath, Message}
@@ -33,7 +31,7 @@ defmodule KafkaManager.Kafka.Filter do
   @typedoc "A header name, matched exactly, plus an optional value pattern."
   @type header_filter :: %{name: String.t(), value: nil | pattern()}
 
-  @typedoc "One JSON field condition, in row order (docs/PLAN.md 2.5.1)."
+  @typedoc "One JSON field condition, in row order."
   @type json_condition :: %{
           index: non_neg_integer(),
           source: String.t(),
@@ -77,7 +75,7 @@ defmodule KafkaManager.Kafka.Filter do
   Parses the Data view's filter query params into a `%Filter{}`. Every
   regular expression is compiled here, once per search. Returns every field
   error found, keyed by `"key"`, `"value"`, `"header"`, `"partition"`,
-  `"from"`, `"to"` or `"json-<i>"` (docs/PLAN.md 2.5, 2.5.1), `i` the
+  `"from"`, `"to"` or `"json-<i>"`, `i` the
   0-based position of a JSON condition row in `params["json"]`.
   """
   @spec parse(map()) :: {:ok, t()} | {:error, %{String.t() => String.t()}}
@@ -117,7 +115,7 @@ defmodule KafkaManager.Kafka.Filter do
     end
   end
 
-  # `from` after `to` is a range error keyed to `"to"` (docs/PLAN.md 2.5),
+  # `from` after `to` is a range error keyed to `"to"`,
   # checked only once both fields parsed cleanly on their own.
   defp maybe_range_error(errors, fields) do
     with false <- Map.has_key?(errors, "from"),
@@ -134,7 +132,7 @@ defmodule KafkaManager.Kafka.Filter do
   @doc """
   Matches one message against `filter`. Every active field must match
   (AND). Evaluates the cheapest checks first: time, key, header, value, then
-  JSON conditions last, the most expensive check (docs/PLAN.md 2.5, 2.5.1).
+  JSON conditions last, the most expensive check.
   A regular expression that hits its backtracking limit stops evaluation and
   returns `{:match_limit, field}` immediately, without checking the
   remaining fields or conditions.
@@ -149,7 +147,7 @@ defmodule KafkaManager.Kafka.Filter do
     end
   end
 
-  # --- JSON field conditions (docs/PLAN.md 2.5.1, AC-22) ---------------
+  # --- JSON field conditions ---------------------------------------------
 
   # `params["json"]`: a list of string-keyed row maps. Anything else there
   # (missing, a map, a string) reads as no rows, and a non-map element is
@@ -282,7 +280,7 @@ defmodule KafkaManager.Kafka.Filter do
 
   # A path always needs an object or an array at the root. Checking the
   # first non-whitespace byte first means plain text, empty and null values
-  # (docs/PLAN.md 1.2) and scalar JSON never pay for a decode.
+  # and scalar JSON never pay for a decode.
   defp decode_json_root(value) do
     case first_significant_byte(value) do
       c when c in [?{, ?[] ->
@@ -332,7 +330,7 @@ defmodule KafkaManager.Kafka.Filter do
 
   # The subject `contains` and `regex` match: a string's own content, a
   # number's or boolean's decoded text form, `null` for JSON null. Objects
-  # and arrays never match either operator (docs/PLAN.md 2.5.1, AC-26).
+  # and arrays never match either operator.
   defp json_text_form(t) when is_binary(t), do: {:ok, t}
   defp json_text_form(t) when is_number(t), do: {:ok, json_number_text(t)}
   defp json_text_form(t) when is_boolean(t), do: {:ok, to_string(t)}
@@ -433,7 +431,7 @@ defmodule KafkaManager.Kafka.Filter do
   end
 
   defp match_key(nil, _key), do: :match
-  # A null key never matches a key filter (docs/PLAN.md 2.5).
+  # A null key never matches a key filter.
   defp match_key(_pattern, nil), do: :nomatch
   defp match_key(pattern, key), do: run_regex(pattern.regex, key, "key")
 

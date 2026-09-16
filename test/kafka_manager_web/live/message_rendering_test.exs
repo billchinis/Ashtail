@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.MessageRenderingTest do
   @moduledoc """
-  AC-8: null keys show a marker and long values truncate behind an expander.
+  Null keys show a marker and long values truncate behind an expander.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

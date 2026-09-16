@@ -33,7 +33,7 @@ const liveSocket = new LiveSocket("/live", Socket, {
 })
 
 // Show progress bar on live navigation and form submits, in the theme's
-// primary colour (docs/DESIGN.md) rather than a hardcoded blue. The colour
+// primary colour rather than a hardcoded blue. The colour
 // is re-read on every use (not cached at load) so it stays current after a
 // theme toggle, and is validated because it may be an oklch() value that
 // some browsers' canvas gradients cannot parse, which would throw on every

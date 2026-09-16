@@ -1,9 +1,9 @@
 defmodule KafkaManagerWeb.TopicDataJsonOperatorsTest do
   @moduledoc """
-  AC-23: a single JSON field condition row, edited in place, matches with
-  `equals`, `contains` and `regex` on a nested path and an array index, and
-  an invalid regular expression on that row halts the search and renders a
-  per-row error without running a scan (docs/PLAN.md 2.5.1, 4.11).
+  A single JSON field condition row, edited in place, matches with `equals`,
+  `contains` and `regex` on a nested path and an array index, and an invalid
+  regular expression on that row halts the search and renders a per-row error
+  without running a scan.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

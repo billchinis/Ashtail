@@ -1,8 +1,8 @@
 defmodule KafkaManager.AsyncAssertions do
   @moduledoc """
   Waits for an assertion to stop raising instead of sending a fake tick or
-  sleeping once and asserting: tests that observe the tail (AC-9, AC-14) need
-  to wait for the LiveView's own timer to fire.
+  sleeping once and asserting: tests that observe the tail need to wait for the
+  LiveView's own timer to fire.
   """
 
   @default_timeout 5_000

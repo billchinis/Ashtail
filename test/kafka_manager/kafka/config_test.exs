@@ -1,6 +1,6 @@
 defmodule KafkaManager.Kafka.ConfigTest do
   @moduledoc """
-  AC-1: cluster connection settings are read from environment variables.
+  Cluster connection settings are read from environment variables.
   """
 
   use ExUnit.Case, async: true

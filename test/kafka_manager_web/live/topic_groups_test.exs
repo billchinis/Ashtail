@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.TopicGroupsTest do
   @moduledoc """
-  AC-16: the Consumer Groups sub-menu lists the groups consuming the topic.
+  The Consumer Groups sub-menu lists the groups consuming the topic.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

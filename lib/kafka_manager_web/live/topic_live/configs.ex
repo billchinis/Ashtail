@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.TopicLive.Configs do
   @moduledoc """
-  AC-5: the Configs sub-menu, showing the topic's broker configuration.
+  The Configs sub-menu, showing the topic's broker configuration.
   """
 
   use KafkaManagerWeb, :live_view

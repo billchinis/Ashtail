@@ -1,11 +1,10 @@
 defmodule KafkaManagerWeb.TopicDataJsonExistsTest do
   @moduledoc """
-  AC-22: a JSON field condition, added and edited through the Value
-  fieldset's "Add JSON field" control, matches only messages whose value is
-  JSON and has the given path, combined with AND with the other filters
-  (docs/PLAN.md 2.5.1, 4.9, 4.11). `payments` mixes 108 JSON values with 12
-  that are not (plain text, truncated JSON, null), all reshaped for this
-  change (docs/ACCEPTANCE.md AC-22).
+  A JSON field condition, added and edited through the Value fieldset's
+  "Add JSON field" control, matches only messages whose value is JSON and
+  has the given path, combined with AND with the other filters. `payments`
+  mixes 108 JSON values with 12 that are not (plain text, truncated JSON,
+  null), seeded specifically for the JSON field filter.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

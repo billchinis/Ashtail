@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.MessageBrowserTest do
   @moduledoc """
-  AC-6: the message browser reads a chosen partition from a chosen offset.
+  The message browser reads a chosen partition from a chosen offset.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

@@ -1,9 +1,8 @@
 defmodule KafkaManager.Kafka.JsonPath do
   @moduledoc """
-  The path syntax for a JSON field condition (docs/PLAN.md 2.5.1): dot
-  notation for object keys plus `[n]` for array indexes, for example
-  `customer.id` or `items[0].sku`. Pure, two functions, no dependency on
-  `Filter` — only `Filter` calls this module.
+  The path syntax for a JSON field condition: dot notation for object keys plus
+  `[n]` for array indexes, for example `customer.id` or `items[0].sku`. Pure,
+  two functions, no dependency on `Filter` — only `Filter` calls this module.
 
       path  := first ( "." key index* )*
       first := key index* | index+        a path may start with [n]
@@ -44,7 +43,7 @@ defmodule KafkaManager.Kafka.JsonPath do
   # `( "." key index* )*` — every following segment starts with a dot.
   # Anything else after a key or a closing bracket (a stray character, a
   # bracket with no leading dot after a key) is the one "anything after ]
-  # other than . or [" failure (docs/PLAN.md 2.5.1).
+  # other than . or [" failure.
   defp parse_more(""), do: {:ok, []}
 
   defp parse_more("." <> rest) do

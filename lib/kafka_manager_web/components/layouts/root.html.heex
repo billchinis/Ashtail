@@ -31,11 +31,10 @@
           if (stored) {
             setTheme(stored);
           } else {
-            // No stored choice: default to light ("Paper") regardless of the
-            // OS setting (docs/DESIGN.md Assumption 1). Leave
-            // data-theme-source unset so the toggle highlights "light" (not
-            // "system") and the prefers-color-scheme listener below ignores
-            // OS changes until the user actually picks "system".
+            // No stored choice: default to light ("Paper") regardless of the OS
+            // setting. Leave data-theme-source unset so the toggle highlights
+            // "light" (not "system") and the prefers-color-scheme listener
+            // below ignores OS changes until the user actually picks "system".
             document.documentElement.setAttribute("data-theme", "light");
           }
         }

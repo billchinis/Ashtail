@@ -1,8 +1,8 @@
 defmodule KafkaManagerWeb.TopicDataScanStopTest do
   @moduledoc """
-  AC-28: a running scan on the Data sub-menu shows a Stop control, and
-  stopping it cancels the read, keeps the rows and the count found so far,
-  and leaves the LiveView alive (docs/PLAN.md 4.9).
+  A running scan on the Data sub-menu shows a Stop control, and stopping it
+  cancels the read, keeps the rows and the count found so far, and leaves the
+  LiveView alive.
 
   The scan has to still be running when Stop is clicked, so this test sets
   `:data_scan_chunk` to 1: every refill then reads one offset per partition

@@ -1,11 +1,10 @@
 defmodule KafkaManagerWeb.TopicLive.DataParamsTest do
   @moduledoc """
-  Pins `KafkaManagerWeb.TopicLive.DataParams`'s JSON-row normaliser
-  (docs/PLAN.md 4.11, 6.7): ordering by integer key, ignoring malformed
-  shapes instead of crashing, dropping and renumbering blank-path rows, the
-  `exists` operator leaving its value out of the URL, and the round trip
-  through `path/4` and back through `parse/1`. Also the pre-existing
-  `?key[x]=1` crash that the same scalar-field coercion fixes.
+  Pins `KafkaManagerWeb.TopicLive.DataParams`'s JSON-row normaliser: ordering by
+  integer key, ignoring malformed shapes instead of crashing, dropping and
+  renumbering blank-path rows, the `exists` operator leaving its value out of
+  the URL, and the round trip through `path/4` and back through `parse/1`. Also
+  the pre-existing `?key[x]=1` crash that the same scalar-field coercion fixes.
   """
 
   use ExUnit.Case, async: true
@@ -127,7 +126,7 @@ defmodule KafkaManagerWeb.TopicLive.DataParamsTest do
     end
   end
 
-  describe "the ?key[x]=1 regression (docs/PLAN.md 4.11)" do
+  describe "the ?key[x]=1 regression" do
     test "a map value for a scalar filter field reaches filter_params as an empty string" do
       params = %{"key" => %{"x" => "1"}}
 

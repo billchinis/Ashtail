@@ -1,10 +1,9 @@
 defmodule KafkaManager.Kafka.FilterTest do
   @moduledoc """
   Pins the parts of `KafkaManager.Kafka.Filter` that seed data cannot reach
-  through an AC test (docs/PLAN.md 6.7): the PCRE2 backtracking limit on a
-  catastrophic pattern, an invalid pattern's error shape, plain text's
-  literal `^`/`$`, a null key never matching, and a header value with no
-  header name.
+  through a LiveView test: the PCRE2 backtracking limit on a catastrophic
+  pattern, an invalid pattern's error shape, plain text's literal `^`/`$`, a
+  null key never matching, and a header value with no header name.
   """
 
   use ExUnit.Case, async: true
@@ -59,7 +58,7 @@ defmodule KafkaManager.Kafka.FilterTest do
     assert message =~ "header name"
   end
 
-  describe "JSON field conditions (docs/PLAN.md 2.5.1, AC-22)" do
+  describe "JSON field conditions" do
     defp json_filter(rows) do
       assert {:ok, filter} = Filter.parse(%{"json" => rows})
       filter
@@ -193,7 +192,7 @@ defmodule KafkaManager.Kafka.FilterTest do
     end
   end
 
-  describe "contains and regex fall back to a scalar's JSON text form (AC-26)" do
+  describe "contains and regex fall back to a scalar's JSON text form" do
     test "contains matches a number by its decoded text form" do
       filter =
         json_filter([json_condition(%{"path" => "n", "op" => "contains", "value" => "4"})])

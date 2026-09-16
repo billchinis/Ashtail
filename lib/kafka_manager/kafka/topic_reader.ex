@@ -1,21 +1,19 @@
 defmodule KafkaManager.Kafka.TopicReader do
   @moduledoc """
-  The merged read engine behind `KafkaManager.Kafka.read_topic/2`
-  (docs/PLAN.md 2.4): a lazy k-way merge of every scoped partition's
-  messages into one newest-first (or, for a forward cursor, oldest-first
-  then reversed) page.
+  The merged read engine behind `KafkaManager.Kafka.read_topic/2`: a lazy
+  k-way merge of every scoped partition's messages into one newest-first
+  (or, for a forward cursor, oldest-first then reversed) page.
 
   It calls `Client.metadata/1`, `Client.list_offsets/3` and
   `Messages.read_range/5` only, never `Client.fetch/5` directly, which keeps
   the fetch-loop rules of `Messages` in one place.
 
-  AC-18 wired the bounds, the cursor and the merge for the unfiltered case.
-  AC-19 adds the filter predicate (`KafkaManager.Kafka.Filter`), progress
-  reporting (`on_progress`), the scan budget (`max_scanned`) and the
-  backtracking-limit halt (`halted`). AC-20 adds the time-range bounds
-  (`filter.from`, `filter.to`): each set end costs one more batched
-  `ListOffsets` call by timestamp, jumping straight to the start offset
-  instead of scanning from the beginning (docs/PLAN.md 2.4).
+  On top of the bounds, the cursor and the merge, a read supports a filter
+  predicate (`KafkaManager.Kafka.Filter`), progress reporting (`on_progress`), a
+  scan budget (`max_scanned`), the backtracking-limit halt (`halted`) and
+  time-range bounds (`filter.from`, `filter.to`): each set end costs one more
+  batched `ListOffsets` call by timestamp, jumping straight to the start offset
+  instead of scanning from the beginning.
   """
 
   alias KafkaManager.Kafka.{BrokerError, Client, Config, Filter, Message, Messages}
@@ -46,15 +44,14 @@ defmodule KafkaManager.Kafka.TopicReader do
          {:ok, floor, ceiling} <- bounds(config, topic, partition_ids, filter) do
       direction = direction(cursor)
       # A filtered scan reads in bigger chunks than an unfiltered page, since
-      # most chunks will not fill the page (docs/PLAN.md 2.4, "Refill").
-      # `:scan_chunk` overrides this; it is test-only, so a scan can be
-      # forced across several refill rounds without depending on a huge
-      # topic. `Kafka.read_topic/2` forwards every option through unchanged
-      # (fix run item 3), so `:scan_chunk` **is** reachable from outside this
-      # module even though no LiveView ever supplies it — it is guarded
-      # below rather than trusted, because a non-positive value would make
-      # `chunk_bounds/5` produce an empty or backward range and the refill
-      # loop would never advance `next`, looping forever.
+      # most chunks will not fill the page. `:scan_chunk` overrides this; it is
+      # test-only, so a scan can be forced across several refill rounds without
+      # depending on a huge topic. `Kafka.read_topic/2` forwards every option
+      # through unchanged, so `:scan_chunk` **is** reachable from outside this
+      # module even though no LiveView ever supplies it — it is guarded below
+      # rather than trusted, because a non-positive value would make
+      # `chunk_bounds/5` produce an empty or backward range and the refill loop
+      # would never advance `next`, looping forever.
       default_chunk = if Filter.active?(filter), do: @scan_chunk, else: page_size
       chunk = validate_scan_chunk!(Keyword.get(opts, :scan_chunk, default_chunk))
 
@@ -75,18 +72,18 @@ defmodule KafkaManager.Kafka.TopicReader do
 
   # Raised at the boundary, never as a broker failure: a non-positive or
   # non-integer `:scan_chunk` is a programming error in the caller, not
-  # something the broker can report (fix run item 3).
+  # something the broker can report.
   defp validate_scan_chunk!(chunk) when is_integer(chunk) and chunk > 0, do: chunk
 
   defp validate_scan_chunk!(chunk) do
     raise ArgumentError, "scan_chunk must be a positive integer, got: #{inspect(chunk)}"
   end
 
-  # `floor`/`ceiling` narrow to `filter.from`/`filter.to` when set
-  # (docs/PLAN.md 2.4). `to` is inclusive, so its `ListOffsets` lookup uses
-  # `to + 1 ms` as the exclusive end. A lookup with no matching offset (1.4)
-  # means "latest", which leaves that end unrestricted; a `floor` past its
-  # `ceiling` is clamped down to `ceiling`, leaving the partition empty.
+  # `floor`/`ceiling` narrow to `filter.from`/`filter.to` when set. `to` is
+  # inclusive, so its `ListOffsets` lookup uses `to + 1 ms` as the exclusive
+  # end. A lookup with no matching offset means "latest", which leaves that end
+  # unrestricted; a `floor` past its `ceiling` is clamped down to `ceiling`,
+  # leaving the partition empty.
   defp bounds(config, topic, partition_ids, filter) do
     pairs = Enum.map(partition_ids, &{topic, &1})
 
@@ -138,9 +135,8 @@ defmodule KafkaManager.Kafka.TopicReader do
     case step(config, topic, ctx, state, [], 0, []) do
       {:ok, final_state, messages, scanned, halted} ->
         # `step/6` returns messages in emission order: newest first for a
-        # backward read, oldest first for a forward one. The result is
-        # always newest first (docs/PLAN.md 2.4), so a forward read's
-        # emission order is reversed here.
+        # backward read, oldest first for a forward one. The result is always
+        # newest first, so a forward read's emission order is reversed here.
         ordered = if direction == :forward, do: Enum.reverse(messages), else: messages
 
         {:ok,
@@ -163,8 +159,8 @@ defmodule KafkaManager.Kafka.TopicReader do
   end
 
   # Scope is every one of the topic's partitions, or, with `filter.partition`
-  # set, that one partition only (docs/PLAN.md 2.4, "Terms"). A partition not
-  # on the topic simply scopes to nothing, which reads as an empty page.
+  # set, that one partition only. A partition not on the topic simply scopes to
+  # nothing, which reads as an empty page.
   defp scope_partitions(ids, nil), do: ids
   defp scope_partitions(ids, partition), do: Enum.filter(ids, &(&1 == partition))
 
@@ -228,17 +224,16 @@ defmodule KafkaManager.Kafka.TopicReader do
     end)
   end
 
-  # Refill/emit loop (docs/PLAN.md 2.4, "Algorithm"). Emits until
-  # `ctx.page_size` messages have been collected or every scoped partition is
-  # exhausted with an empty buffer. `ctx` carries the loop-invariant
+  # Refill/emit loop. Emits until `ctx.page_size` messages have been collected
+  # or every scoped partition is exhausted with an empty buffer. `ctx` carries
+  # the loop-invariant
   # `floor`/`ceiling`/`direction`/`page_size`/`chunk`/`filter`/`max_scanned`/
   # `on_progress`. Stops early, with `halted` set, the moment a regular
-  # expression hits its backtracking limit (docs/PLAN.md 2.5); stops early,
-  # with `halted` `nil`, once the scan budget (`max_scanned`) is spent.
-  # `pending` carries the messages emitted since the last progress report, in
-  # emission order (newest first): only rows the merge has actually emitted
-  # may ever reach `on_progress`, never rows merely buffered by a refill
-  # (docs/PLAN.md 2.4, "Refill" step 4).
+  # expression hits its backtracking limit; stops early, with `halted` `nil`,
+  # once the scan budget (`max_scanned`) is spent. `pending` carries the
+  # messages emitted since the last progress report, in emission order (newest
+  # first): only rows the merge has actually emitted may ever reach
+  # `on_progress`, never rows merely buffered by a refill.
   defp step(config, topic, ctx, state, page, scanned, pending) do
     cond do
       length(page) >= ctx.page_size -> stopped(state, page, scanned)
@@ -252,16 +247,15 @@ defmodule KafkaManager.Kafka.TopicReader do
   defp stopped(state, page, scanned), do: {:ok, state, Enum.reverse(page), scanned, nil}
 
   # The tick ends the moment the remaining budget cannot give every partition
-  # that still needs a refill at least one message (fix run item 1): a round
-  # that must give each of `n` needing partitions >= 1 message would
-  # otherwise push the total scanned past `max_scanned` (as `fair_chunk`
-  # flooring every share at 1 used to do). The total scanned per tick is
-  # therefore capped at `max_scanned`, with exactly one exception: when more
-  # than `max_scanned` scoped partitions still need a refill, `needing` alone
-  # already exceeds the cap and this tick still has to give each of them at
-  # least one message to guarantee progress (docs/PLAN.md 4.10) — that is the
-  # only case where the total can exceed `max_scanned`, and it only arises
-  # when the caller passes a budget smaller than the partition count.
+  # that still needs a refill at least one message: a round that must give each
+  # of `n` needing partitions >= 1 message would otherwise push the total
+  # scanned past `max_scanned` (as `fair_chunk` flooring every share at 1 used
+  # to do). The total scanned per tick is therefore capped at `max_scanned`,
+  # with exactly one exception: when more than `max_scanned` scoped partitions
+  # still need a refill, `needing` alone already exceeds the cap and this tick
+  # still has to give each of them at least one message to guarantee progress —
+  # that is the only case where the total can exceed `max_scanned`, and it only
+  # arises when the caller passes a budget smaller than the partition count.
   defp budget_exhausted?(%{max_scanned: :infinity}, _scanned, _state), do: false
 
   defp budget_exhausted?(ctx, scanned, state) do
@@ -300,7 +294,7 @@ defmodule KafkaManager.Kafka.TopicReader do
   defp report_progress(%{on_progress: on_progress, direction: direction}, scanned, emitted) do
     # Messages are included for backward reads only: a forward read's
     # emission order is oldest first, so its progress is reported without
-    # rows (docs/PLAN.md 2.4, "Refill" step 4).
+    # rows.
     messages = if direction == :backward, do: emitted, else: []
     on_progress.(%{scanned: scanned, messages: messages})
   end
@@ -319,7 +313,7 @@ defmodule KafkaManager.Kafka.TopicReader do
 
   # Every non-exhausted scoped partition must hold a buffered message before
   # anything is emitted, which is what makes `pop_best/2`'s head comparison
-  # exact (docs/PLAN.md 2.4, "Emit").
+  # exact.
   @doc false
   @spec ready_to_emit?(map()) :: boolean()
   def ready_to_emit?(state) do
@@ -328,10 +322,9 @@ defmodule KafkaManager.Kafka.TopicReader do
     end)
   end
 
-  # The tie order (docs/PLAN.md 2.4, "Merge order"): the largest
-  # `{timestamp_ms, partition, offset}` first for a backward read, the
-  # smallest first for a forward read, so a timestamp tie breaks by
-  # partition, then offset, both descending when read newest first.
+  # The tie order: the largest `{timestamp_ms, partition, offset}` first for a
+  # backward read, the smallest first for a forward read, so a timestamp tie
+  # breaks by partition, then offset, both descending when read newest first.
   @doc false
   @spec pop_best(map(), :backward | :forward) :: {Message.t(), map()}
   def pop_best(state, direction) do
@@ -346,23 +339,22 @@ defmodule KafkaManager.Kafka.TopicReader do
     {msg, update_in(state[p].buffer, &tl/1)}
   end
 
-  # Refills every partition that needs it for one round, stopping at the
-  # first error or the first backtracking-limit halt: the merge state must
-  # not silently drop the partitions after it (docs/PLAN.md 2.5). The scan
-  # budget (`max_scanned`) is a total across every partition, not per
-  # partition, and it is split fairly across every partition that needs a
-  # refill this round rather than spent on the first ones in order (fix run
-  # item 1). Refilling partitions in a fixed order until the budget ran out
-  # let the first ones exhaust it, leaving the rest with a permanently empty
-  # buffer: `ready_to_emit?/1` requires every non-exhausted partition to hold
-  # a buffered message, so nothing was ever emitted and the caller's cursor
-  # never advanced. Giving every partition needing a refill a fair share of
-  # what is left, with a floor of one message, keeps every one of them
-  # contributing to the merge, so a tick always emits something when there is
-  # anything left to read. `step/6` only ever reaches this function once
+  # Refills every partition that needs it for one round, stopping at the first
+  # error or the first backtracking-limit halt: the merge state must not
+  # silently drop the partitions after it. The scan budget (`max_scanned`) is a
+  # total across every partition, not per partition, and it is split fairly
+  # across every partition that needs a refill this round rather than spent on
+  # the first ones in order. Refilling partitions in a fixed order until the
+  # budget ran out let the first ones exhaust it, leaving the rest with a
+  # permanently empty buffer: `ready_to_emit?/1` requires every non-exhausted
+  # partition to hold a buffered message, so nothing was ever emitted and the
+  # caller's cursor never advanced. Giving every partition needing a refill a
+  # fair share of what is left, with a floor of one message, keeps every one of
+  # them contributing to the merge, so a tick always emits something when there
+  # is anything left to read. `step/6` only ever reaches this function once
   # `budget_exhausted?/3` has confirmed the remaining budget can give every
   # `needing` partition its floor of one message, so the floor here can never
-  # push the round's total scanned past `max_scanned` (fix run item 1).
+  # push the round's total scanned past `max_scanned`.
   defp refill_all(config, topic, ctx, state, scanned) do
     needing = for {p, %{buffer: [], exhausted?: false}} <- state, do: p
 
@@ -431,9 +423,8 @@ defmodule KafkaManager.Kafka.TopicReader do
   end
 
   # Every message read counts toward `scanned`, whether or not it passes the
-  # filter (docs/PLAN.md 2.4, "Refill" step 1). Stops at the first
-  # backtracking-limit hit, discarding the rest of the chunk: a halted scan
-  # ends the whole read (docs/PLAN.md 2.5).
+  # filter. Stops at the first backtracking-limit hit, discarding the rest of
+  # the chunk: a halted scan ends the whole read.
   defp filter_chunk(messages, filter) do
     result =
       Enum.reduce_while(messages, {[], 0}, fn message, {acc, scanned} ->

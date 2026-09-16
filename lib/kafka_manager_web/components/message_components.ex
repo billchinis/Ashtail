@@ -1,13 +1,12 @@
 defmodule KafkaManagerWeb.MessageComponents do
   @moduledoc """
-  The message list shared by the per-partition browser and, from AC-18
-  onward, the Data view (docs/DESIGN.md "Message list", Assumption 5):
+  The message list shared by the per-partition browser and the Data view:
   `message_list/1` is the sheet holding the `ul.list` stream container,
   `message_row/1` renders one row's two lines, and `message_key/1`,
   `message_value/1` and `message_headers/1` render its pieces. `pager/1`,
   `tail_control/1` and `page_size_select/1` are the shared toolbar and
   footer pieces, and `iso_timestamp/1` is the pure formatter behind
-  `data-timestamp` (docs/PLAN.md 4.2).
+  `data-timestamp`.
   """
 
   use Phoenix.Component
@@ -17,10 +16,9 @@ defmodule KafkaManagerWeb.MessageComponents do
   @truncate_length 200
 
   @doc """
-  Renders a message's key. A `nil` key (AC-8) renders a `<null>` marker
-  instead of an empty element. The clamp lifts while the row's value is
-  expanded (DESIGN.md Assumption 6), so the key can be read in full
-  alongside the expanded value.
+  Renders a message's key. A `nil` key renders a `<null>` marker instead of an
+  empty element. The clamp lifts while the row's value is expanded, so the key
+  can be read in full alongside the expanded value.
   """
   attr :key, :any, default: nil
   attr :expanded?, :boolean, default: false
@@ -44,14 +42,13 @@ defmodule KafkaManagerWeb.MessageComponents do
   end
 
   @doc """
-  Renders a message's value. Values longer than the truncation length
-  (AC-8) render behind a server-side expander (docs/PLAN.md 4.1, P4)
-  instead of in full. `partition` is set only where the caller's expand
-  and collapse events are keyed by `{partition, offset}` (the Data view). An
-  empty string (AC-25) renders a muted `(empty)` marker instead of
-  a blank block, in the same spirit as `message_key/1`'s `<null>` marker but
-  without claiming the value was null: the broker gives no way to tell a
-  Kafka null value apart from an empty string (docs/DECISIONS.md).
+  Renders a message's value. Values longer than the truncation length render
+  behind a server-side expander instead of in full. `partition` is set only
+  where the caller's expand and collapse events are keyed by `{partition,
+  offset}` (the Data view). An empty string renders a muted `(empty)` marker
+  instead of a blank block, in the same spirit as `message_key/1`'s `<null>`
+  marker but without claiming the value was null: the broker gives no way to
+  tell a Kafka null value apart from an empty string.
   """
   attr :value, :string, required: true
   attr :expanded?, :boolean, default: false
@@ -116,7 +113,7 @@ defmodule KafkaManagerWeb.MessageComponents do
 
   @doc """
   Renders a message's headers as `name=value` pills, pushed to the right
-  of the meta line (DESIGN.md "Message list").
+  of the meta line.
   """
   attr :headers, :list, required: true
 
@@ -133,11 +130,11 @@ defmodule KafkaManagerWeb.MessageComponents do
 
   @doc """
   Renders one message row's content: the meta line (partition, offset,
-  timestamp, headers) and the key/value line (DESIGN.md "Message list").
+  timestamp, headers) and the key/value line.
   It is rendered inside `message_list/1`'s stream `<li>`; it does not
   render the `<li>` itself. `show_partition` is false on the per-partition
   browser, which leaves the partition out because its `h1` already names
-  it (DESIGN.md Assumption 5).
+  it.
   """
   attr :message, :map, required: true
   attr :show_partition, :boolean, default: false
@@ -174,7 +171,7 @@ defmodule KafkaManagerWeb.MessageComponents do
   Renders the message list sheet: a `card` holding `ul.list`, the stream
   container, with a stream-safe empty state as its first child, an
   optional indeterminate scan progress bar (`running`), and an optional
-  footer slot for the pager (docs/DESIGN.md "Message list").
+  footer slot for the pager.
   """
   attr :id, :string, required: true
   attr :rows, :any, required: true, doc: "the :messages stream"
@@ -186,7 +183,7 @@ defmodule KafkaManagerWeb.MessageComponents do
 
   attr :row_attrs, :any,
     default: nil,
-    doc: "fn from row item to a map of extra <li> attributes (the P5 test hooks)"
+    doc: "fn from row item to a map of extra <li> attributes (the data-* test hooks)"
 
   attr :running, :boolean, default: false, doc: "shows the indeterminate scan progress bar"
 
@@ -243,7 +240,7 @@ defmodule KafkaManagerWeb.MessageComponents do
   The right-aligned pager `join` under the message list sheet. Labels and
   the `data-*` hooks are attrs, because the per-partition browser reads
   "Previous page"/"Next page" (ascending offsets) while the Data view
-  reads "Newer"/"Older" (DESIGN.md Assumption 8) on the same two hooks.
+  reads "Newer"/"Older" on the same two hooks.
   A `nil` patch hides that control and leaves no gap.
   """
   attr :prev_patch, :string, default: nil
@@ -277,8 +274,7 @@ defmodule KafkaManagerWeb.MessageComponents do
   end
 
   @doc """
-  The tail toggle button and the `data-tail` live/off indicator
-  (docs/PLAN.md 4.5, 4.10; DESIGN.md "Status and toolbar row"), shared by
+  The tail toggle button and the `data-tail` live/off indicator, shared by
   the per-partition browser and the Data view.
   """
   attr :tailing?, :boolean, required: true
@@ -315,8 +311,8 @@ defmodule KafkaManagerWeb.MessageComponents do
   end
 
   @doc """
-  The "Per page" page-size select (docs/DESIGN.md "Status and toolbar
-  row"), a self-submitting form on `phx-change="page_size"`.
+  The "Per page" page-size select, a self-submitting form on
+  `phx-change="page_size"`.
   """
   attr :page_size, :integer, required: true
   attr :id, :string, default: "page-size-form"
@@ -335,9 +331,8 @@ defmodule KafkaManagerWeb.MessageComponents do
   end
 
   @doc """
-  `YYYY-MM-DDTHH:MM:SS.sssZ`, always three fractional digits
-  (docs/PLAN.md 4.2). Pure: it never touches the visible timestamp text,
-  which stays exactly as it renders today.
+  `YYYY-MM-DDTHH:MM:SS.sssZ`, always three fractional digits. Pure: it never
+  touches the visible timestamp text, which stays exactly as it renders today.
   """
   def iso_timestamp(%DateTime{} = timestamp) do
     timestamp

@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.TailBrokerLostTest do
   @moduledoc """
-  AC-14: a broker lost mid-tail renders an error and stops the tail.
+  A broker lost mid-tail renders an error and stops the tail.
   """
 
   use KafkaManagerWeb.ConnCase, async: false

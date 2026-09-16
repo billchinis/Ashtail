@@ -1,13 +1,12 @@
 defmodule KafkaManagerWeb.TopicDataJsonConditionsTest do
   @moduledoc """
-  AC-24: several JSON field condition rows combine with AND, with each
-  other and with the other filters, an invalid path on one row errors only
-  that row, removing a row keeps the other rows' typed values, and the
-  applied rows survive a round trip through the URL into a fresh LiveView
-  (docs/PLAN.md 2.5.1, 4.9, 4.11). `payments` is the AC-22/AC-23 reshape:
-  `refunded` is JSON `true` exactly when N mod 3 = 1, and the text
-  `"method":"card"` appears in the JSON values exactly when N is divisible
-  by 3.
+  Several JSON field condition rows combine with AND, with each other and
+  with the other filters, an invalid path on one row errors only that row,
+  removing a row keeps the other rows' typed values, and the applied rows
+  survive a round trip through the URL into a fresh LiveView. In the seeded
+  `payments` topic, `refunded` is JSON `true` exactly when N mod 3 = 1, and
+  the text `"method":"card"` appears in the JSON values exactly when N is
+  divisible by 3.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

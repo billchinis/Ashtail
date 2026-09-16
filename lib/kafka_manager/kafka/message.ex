@@ -4,9 +4,9 @@ defmodule KafkaManager.Kafka.Message do
   brod normalises a NULL key to `<<>>` on read, and `Client` maps `<<>>`,
   `:undefined` and `:null` to `nil` at the boundary.
 
-  `partition` (2026-09-11) is set by `Client.fetch/5`, which knows the
-  partition it asked for. It is not in `@enforce_keys`, so existing test
-  fixtures that build `%Message{}` without it keep compiling.
+  `partition` is set by `Client.fetch/5`, which knows the partition it asked
+  for. It is not in `@enforce_keys`, so existing test fixtures that build
+  `%Message{}` without it keep compiling.
   """
 
   @enforce_keys [:offset, :key, :value, :timestamp, :headers]

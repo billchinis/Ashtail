@@ -1,11 +1,10 @@
 defmodule KafkaManager.Kafka.JsonPathTest do
   @moduledoc """
-  Pins `KafkaManager.Kafka.JsonPath`'s grammar and lookup (docs/PLAN.md
-  2.5.1, 6.7): every valid path shape, every invalid form named there, and
-  `fetch/2`'s one rule (a string segment on a map, an integer segment on a
-  list, anything else is `:error`) covering a missing key, an out-of-range
-  index, a key on a list, an index on a map, a scalar mid-path and a JSON
-  `null` leaf.
+  Pins `KafkaManager.Kafka.JsonPath`'s grammar and lookup: every valid path
+  shape, every invalid form the grammar rejects, and `fetch/2`'s one rule (a
+  string segment on a map, an integer segment on a list, anything else is
+  `:error`) covering a missing key, an out-of-range index, a key on a list, an
+  index on a map, a scalar mid-path and a JSON `null` leaf.
   """
 
   use ExUnit.Case, async: true

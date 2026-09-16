@@ -1,6 +1,6 @@
 defmodule KafkaManagerWeb.TopicListSearchTest do
   @moduledoc """
-  AC-4: the topic list search filters topics by name.
+  The topic list search filters topics by name.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

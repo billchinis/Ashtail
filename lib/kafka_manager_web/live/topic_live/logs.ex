@@ -1,8 +1,7 @@
 defmodule KafkaManagerWeb.TopicLive.Logs do
   @moduledoc """
-  AC-17: the Logs sub-menu, showing log directory usage for every partition
-  replica via a raw DescribeLogDirs request. See
-  `KafkaManager.Kafka.topic_log_dirs/1`.
+  The Logs sub-menu, showing log directory usage for every partition replica via
+  a raw DescribeLogDirs request. See `KafkaManager.Kafka.topic_log_dirs/1`.
   """
 
   use KafkaManagerWeb, :live_view
@@ -33,9 +32,8 @@ defmodule KafkaManagerWeb.TopicLive.Logs do
     {:noreply, socket}
   end
 
-  # Two fetches per docs/PLAN.md P3: `broker_error` becomes the first of the
-  # two that fails, or `nil` when both succeed. One success does not clear
-  # the other's error.
+  # Two fetches: `broker_error` becomes the first of the two that fails, or
+  # `nil` when both succeed. One success does not clear the other's error.
   defp fetch(socket, name) do
     topic_result = Kafka.topic_summary(name)
     log_dirs_result = Kafka.topic_log_dirs(name)
@@ -60,7 +58,7 @@ defmodule KafkaManagerWeb.TopicLive.Logs do
   defp ok_or_nil({:error, _}), do: nil
 
   # A human-readable size (base 1024, one decimal), for the line above the
-  # exact "{n} bytes" (DESIGN.md "Logs sub-menu").
+  # exact "{n} bytes".
   defp human_size(bytes) when is_integer(bytes) and bytes < 1024, do: "#{bytes} B"
 
   defp human_size(bytes) when is_integer(bytes) do

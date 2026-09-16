@@ -1,7 +1,7 @@
 defmodule KafkaManagerWeb.TopicDataTest do
   @moduledoc """
-  AC-18: the Data sub-menu merges every partition's messages, newest first,
-  with paging.
+  The Data sub-menu merges every partition's messages, newest first, with
+  paging.
   """
 
   use KafkaManagerWeb.ConnCase, async: true

@@ -1,21 +1,18 @@
 defmodule KafkaManagerWeb.GroupComponents do
   @moduledoc """
-  Shared rendering for a consumer group's state and lag (DESIGN.md "Shared
-  pieces"), used everywhere a group's state or lag is shown so the pages
-  cannot drift apart: `state_pill/1` and `lag/1` are the current function
-  components.
+  Shared rendering for a consumer group's state and lag, used everywhere a
+  group's state or lag is shown so the pages cannot drift apart: `state_pill/1`
+  and `lag/1` are the current function components.
   """
 
   use Phoenix.Component
 
   @doc """
-  The consumer group state pill (DESIGN.md "Shared pieces"): a coloured
-  `status` dot plus a `badge-soft` badge, with the state word kept in
-  `base-content` (DESIGN.md Assumption 3 — Paper's success/warning text
-  colours fail 4.5:1 at this size, so colour carries the dot and the tint,
-  never the word). `size` defaults to `badge-sm`; the group detail stats
-  strip (DESIGN.md "consumer group detail") is the one caller that passes
-  `badge-md`.
+  The consumer group state pill: a coloured `status` dot plus a `badge-soft`
+  badge, with the state word kept in `base-content` (the Paper theme's
+  success/warning text colours fail 4.5:1 at this size, so colour carries the
+  dot and the tint, never the word). `size` defaults to `badge-sm`; the group
+  detail stats strip is the one caller that passes `badge-md`.
   """
   attr :state, :string, required: true
   attr :size, :string, default: "badge-sm"
@@ -43,13 +40,12 @@ defmodule KafkaManagerWeb.GroupComponents do
   defp pill_dot(_other), do: ""
 
   @doc """
-  A lag numeral (DESIGN.md "Shared pieces"): `size={:large}` (the default)
-  is a bare `text-xl`-or-bigger numeral for group and topic totals; non-zero
-  is `text-warning`, zero is `text-base-content/40`. `size={:small}` is an
-  ink numeral for the per-partition tables, with a leading `status
-  status-warning` dot when the lag is non-zero and no dot when it is zero.
-  The caller sets the numeral's own text size (`text-xl`, `text-2xl`, ...)
-  through `class`.
+  A lag numeral: `size={:large}` (the default) is a bare `text-xl`-or-bigger
+  numeral for group and topic totals; non-zero is `text-warning`, zero is
+  `text-base-content/40`. `size={:small}` is an ink numeral for the
+  per-partition tables, with a leading `status status-warning` dot when the lag
+  is non-zero and no dot when it is zero. The caller sets the numeral's own text
+  size (`text-xl`, `text-2xl`, ...) through `class`.
   """
   attr :lag, :integer, required: true
   attr :size, :atom, default: :large, values: [:large, :small]

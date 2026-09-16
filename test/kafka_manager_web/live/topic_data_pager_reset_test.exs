@@ -1,9 +1,8 @@
 defmodule KafkaManagerWeb.TopicDataPagerResetTest do
   @moduledoc """
-  Regression (fix run, item 4): starting a scan, and a rejected filter, must
-  reset `older`/`newer` along with the stream. Otherwise the Newer/Older
-  pager links stay on screen pointing at cursors from a previous, possibly
-  differently-filtered read (docs/PLAN.md 4.9).
+  Regression: starting a scan, and a rejected filter, must reset `older`/`newer`
+  along with the stream. Otherwise the Newer/Older pager links stay on screen
+  pointing at cursors from a previous, possibly differently-filtered read.
   """
 
   use KafkaManagerWeb.ConnCase, async: true
@@ -21,9 +20,9 @@ defmodule KafkaManagerWeb.TopicDataPagerResetTest do
       |> form("#filter-form", %{"filter" => %{"partition" => "0"}})
       |> render_submit()
 
-    # The scan never completes synchronously with the patch (docs/PLAN.md
-    # 6.6), so this is the previous page's stale pager, still on screen
-    # unless `start_scan/6` reset it.
+    # The scan never completes synchronously with the patch, so this is the
+    # previous page's stale pager, still on screen unless `start_scan/6` reset
+    # it.
     assert html =~ ~s(data-scan-state="running")
     refute html =~ "data-next-page"
     refute html =~ "data-prev-page"

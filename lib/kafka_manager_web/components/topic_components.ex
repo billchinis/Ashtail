@@ -1,15 +1,12 @@
 defmodule KafkaManagerWeb.TopicComponents do
   @moduledoc """
   The shared header every topic sub-menu page renders first inside
-  `<Layouts.app>` (docs/PLAN.md P6, docs/DESIGN.md "topic page header and
-  sub-menu"): the eyebrow, the serif `h1`, the stats strip, the tab row and
-  the Produce button, followed by the one broker-error card these pages
-  render.
+  `<Layouts.app>`: the eyebrow, the serif `h1`, the stats strip, the tab
+  row and the Produce button, followed by the one broker-error card these
+  pages render.
 
-  The tab list is defined once, here, in the order Data, Partitions,
-  Consumer Groups, Configs, Logs. Each run whose route lands adds exactly
-  its own entry to `tabs/1` (docs/PLAN.md 7.1) — at R1 that is Data only,
-  the current `/topics/:topic` route.
+  The tab list is defined once, here, in `tabs/1`, in the order Data,
+  Partitions, Consumer Groups, Configs, Logs.
   """
 
   use Phoenix.Component
@@ -88,7 +85,7 @@ defmodule KafkaManagerWeb.TopicComponents do
               this.scroll()
             },
             scroll() {
-              // Scroll only the tab strip horizontally (fix run item 5):
+              // Scroll only the tab strip horizontally:
               // `scrollIntoView` can also move the surrounding page
               // vertically, which this hook must never do. Compute the
               // active tab's position within the strip and set the strip's
