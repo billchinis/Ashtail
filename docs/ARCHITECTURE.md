@@ -492,11 +492,11 @@ screenshot pass.
   Light is white sheets on a faint lavender page; dark is a deep purple
   ground with a lighter violet primary. The logo's violet-to-magenta gradient
   (`brand-violet` → `brand-magenta` in `@theme`, the same in both themes)
-  marks the top strip and underlines the current nav item. The theme toggle
-  is a segmented control with a raised thumb and a violet icon. In the top
-  bar the wordmark, nav text and toggle share one centre line; the nav links
-  fill the bar's height so the current page's underline sits on its bottom
-  edge, like a tab.
+  marks the top strip. The nav (Topics / Consumer groups) and the theme
+  toggle are matching segmented controls: a 40px track with the current
+  choice on a raised thumb in violet. In the top bar both controls sit with
+  their bottom edges on the wordmark's bottom edge, which is where its
+  letters end (box edges, so it holds whatever the font rendering).
   Every text/background pair meets WCAG AA. Lists
   use hairline separators and headings are serif. First visit is light regardless of OS
   setting; the toggle stores the choice and a small script in

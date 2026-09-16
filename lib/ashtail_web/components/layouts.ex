@@ -41,13 +41,14 @@ defmodule AshtailWeb.Layouts do
   def app(assigns) do
     ~H"""
     <header class="sticky top-0 z-20 bg-base-100/95 backdrop-blur border-b border-base-300 shadow-sm before:block before:h-1 before:bg-gradient-to-r before:from-brand-violet before:to-brand-magenta">
-      <nav aria-label="Main" class="max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex">
-        <%!-- Everything is centred on one line. The nav links fill the bar's
-             height, so the current page's underline sits on its bottom edge. --%>
-        <div class="flex flex-1 items-center sm:items-stretch gap-3 sm:gap-10">
+      <nav aria-label="Main" class="max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex items-center">
+        <%!-- The nav and theme controls sit with their bottom edges on the
+             wordmark's bottom edge, which is where its letters end. Box edges,
+             not text baselines, so it doesn't depend on font rendering. --%>
+        <div class="flex flex-1 items-end gap-3 sm:gap-10">
           <.link
             navigate={~p"/"}
-            class="order-1 shrink-0 flex items-center"
+            class="order-1 shrink-0"
             aria-label="Ashtail home"
           >
             <img
@@ -66,7 +67,7 @@ defmodule AshtailWeb.Layouts do
             />
           </.link>
 
-          <div class="dropdown dropdown-end order-3 sm:order-2 sm:static sm:flex">
+          <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">
             <div
               tabindex="0"
               role="button"
@@ -77,9 +78,9 @@ defmodule AshtailWeb.Layouts do
             </div>
             <ul
               tabindex="0"
-              class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-stretch sm:!gap-7 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
+              class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-center sm:!gap-0 sm:!w-auto sm:!rounded-full sm:!bg-base-200 sm:!p-1 sm:!shadow-none sm:ring-1 sm:ring-inset sm:ring-base-300"
             >
-              <li class="sm:flex sm:flex-row">
+              <li>
                 <.link
                   navigate={~p"/"}
                   data-nav-topics
@@ -89,7 +90,7 @@ defmodule AshtailWeb.Layouts do
                   Topics
                 </.link>
               </li>
-              <li class="sm:flex sm:flex-row">
+              <li>
                 <.link
                   navigate={~p"/groups"}
                   data-nav-groups
@@ -102,7 +103,7 @@ defmodule AshtailWeb.Layouts do
             </ul>
           </div>
 
-          <div class="order-2 sm:order-3 ml-auto flex items-center">
+          <div class="order-2 sm:order-3 ml-auto">
             <.theme_toggle />
           </div>
         </div>
@@ -117,25 +118,25 @@ defmodule AshtailWeb.Layouts do
     """
   end
 
-  # Plain text links. On desktop each fills the bar's height (the menu's own
-  # padding and fills removed) and the current one gets a logo-gradient bar on
-  # the bar's bottom edge; in the mobile dropdown it gets a soft fill instead.
-  @nav_link_base "relative text-base transition-colors " <>
-                   "sm:flex sm:items-center sm:!px-0 sm:!py-0 sm:rounded-none " <>
-                   "sm:bg-transparent sm:hover:bg-transparent " <>
-                   "sm:active:!bg-transparent sm:focus:!bg-transparent "
+  # On desktop the links are the segments of a control styled like the theme
+  # toggle: 32px segments in a 40px track, the current one on a raised thumb
+  # with violet text. In the mobile dropdown the current one gets a soft fill.
+  @nav_link_base "text-base transition-colors " <>
+                   "sm:flex sm:items-center sm:h-8 sm:!py-0 sm:!px-4 sm:rounded-full " <>
+                   "sm:text-sm sm:border sm:border-transparent "
 
   defp nav_link_class(true),
     do:
       @nav_link_base <>
-        "font-semibold text-base-content " <>
-        "sm:after:absolute sm:after:inset-x-0 sm:after:bottom-0 sm:after:h-[3px] " <>
-        "sm:after:rounded-t-full sm:after:bg-gradient-to-r " <>
-        "sm:after:from-brand-violet sm:after:to-brand-magenta " <>
-        "max-sm:bg-base-200 max-sm:text-primary"
+        "font-semibold text-primary bg-base-200 " <>
+        "sm:bg-base-100 sm:dark:bg-base-300 sm:shadow-sm sm:border-base-300 " <>
+        "sm:hover:bg-base-100 sm:dark:hover:bg-base-300 sm:focus:!bg-base-100"
 
   defp nav_link_class(false),
-    do: @nav_link_base <> "font-medium text-base-content/60 hover:text-base-content"
+    do:
+      @nav_link_base <>
+        "font-medium text-base-content/60 hover:text-base-content " <>
+        "sm:hover:bg-transparent sm:active:!bg-transparent sm:focus:!bg-transparent"
 
   @doc """
   Shows the flash group with standard titles and content.
