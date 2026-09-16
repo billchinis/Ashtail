@@ -41,29 +41,32 @@ defmodule AshtailWeb.Layouts do
   def app(assigns) do
     ~H"""
     <header class="sticky top-0 z-20 bg-base-100/95 backdrop-blur border-b border-base-300 shadow-sm before:block before:h-1 before:bg-gradient-to-r before:from-brand-violet before:to-brand-magenta">
-      <nav aria-label="Main" class="max-w-7xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center">
-        <%!-- One baseline row: the wordmark's letters end at the image's bottom
-             edge, so the nav text and the theme toggle's bottom line up with
-             the bottom of "Ashtail". --%>
-        <div class="flex flex-1 items-end gap-3 sm:gap-10">
-          <.link navigate={~p"/"} class="order-1 shrink-0" aria-label="Ashtail home">
+      <nav aria-label="Main" class="max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex">
+        <%!-- Everything is centred on one line. The nav links fill the bar's
+             height, so the current page's underline sits on its bottom edge. --%>
+        <div class="flex flex-1 items-center sm:items-stretch gap-3 sm:gap-10">
+          <.link
+            navigate={~p"/"}
+            class="order-1 shrink-0 flex items-center"
+            aria-label="Ashtail home"
+          >
             <img
               src={~p"/images/ashtail-wordmark.png"}
               alt="Ashtail"
               width="186"
               height="48"
-              class="block h-9 sm:h-12 w-auto [[data-theme=dark]_&]:hidden"
+              class="block h-9 sm:h-11 w-auto [[data-theme=dark]_&]:hidden"
             />
             <img
               src={~p"/images/ashtail-wordmark-dark.png"}
               alt="Ashtail"
               width="186"
               height="48"
-              class="hidden h-9 sm:h-12 w-auto [[data-theme=dark]_&]:block"
+              class="hidden h-9 sm:h-11 w-auto [[data-theme=dark]_&]:block"
             />
           </.link>
 
-          <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">
+          <div class="dropdown dropdown-end order-3 sm:order-2 sm:static sm:flex">
             <div
               tabindex="0"
               role="button"
@@ -74,9 +77,9 @@ defmodule AshtailWeb.Layouts do
             </div>
             <ul
               tabindex="0"
-              class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-baseline sm:!gap-6 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
+              class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-stretch sm:!gap-7 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
             >
-              <li>
+              <li class="sm:flex sm:flex-row">
                 <.link
                   navigate={~p"/"}
                   data-nav-topics
@@ -86,7 +89,7 @@ defmodule AshtailWeb.Layouts do
                   Topics
                 </.link>
               </li>
-              <li>
+              <li class="sm:flex sm:flex-row">
                 <.link
                   navigate={~p"/groups"}
                   data-nav-groups
@@ -99,7 +102,7 @@ defmodule AshtailWeb.Layouts do
             </ul>
           </div>
 
-          <div class="order-2 sm:order-3 ml-auto">
+          <div class="order-2 sm:order-3 ml-auto flex items-center">
             <.theme_toggle />
           </div>
         </div>
@@ -114,22 +117,22 @@ defmodule AshtailWeb.Layouts do
     """
   end
 
-  # Plain text links; the current one is bold with a logo-gradient bar
-  # underneath. On desktop the menu's own padding and fills are removed, and
-  # the text drops by the 0.5em the link box leaves below the baseline, so the
-  # baseline lands on the wordmark's bottom edge.
-  @nav_link_base "relative text-base sm:text-lg transition-colors " <>
-                   "sm:!px-0 sm:!py-0 sm:!min-h-0 sm:leading-none sm:translate-y-[0.5em] " <>
+  # Plain text links. On desktop each fills the bar's height (the menu's own
+  # padding and fills removed) and the current one gets a logo-gradient bar on
+  # the bar's bottom edge; in the mobile dropdown it gets a soft fill instead.
+  @nav_link_base "relative text-base transition-colors " <>
+                   "sm:flex sm:items-center sm:!px-0 sm:!py-0 sm:rounded-none " <>
                    "sm:bg-transparent sm:hover:bg-transparent " <>
                    "sm:active:!bg-transparent sm:focus:!bg-transparent "
 
   defp nav_link_class(true),
     do:
       @nav_link_base <>
-        "font-semibold text-base-content after:absolute after:inset-x-0 " <>
-        "after:-bottom-1.5 after:h-[3px] after:rounded-full after:bg-gradient-to-r " <>
-        "after:from-brand-violet after:to-brand-magenta " <>
-        "max-sm:after:hidden max-sm:bg-base-200 max-sm:text-primary"
+        "font-semibold text-base-content " <>
+        "sm:after:absolute sm:after:inset-x-0 sm:after:bottom-0 sm:after:h-[3px] " <>
+        "sm:after:rounded-t-full sm:after:bg-gradient-to-r " <>
+        "sm:after:from-brand-violet sm:after:to-brand-magenta " <>
+        "max-sm:bg-base-200 max-sm:text-primary"
 
   defp nav_link_class(false),
     do: @nav_link_base <> "font-medium text-base-content/60 hover:text-base-content"

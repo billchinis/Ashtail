@@ -494,8 +494,9 @@ screenshot pass.
   (`brand-violet` → `brand-magenta` in `@theme`, the same in both themes)
   marks the top strip and underlines the current nav item. The theme toggle
   is a segmented control with a raised thumb and a violet icon. In the top
-  bar the nav text baseline and the toggle's bottom edge line up with the
-  bottom of the wordmark (whose letters end at the image's bottom edge).
+  bar the wordmark, nav text and toggle share one centre line; the nav links
+  fill the bar's height so the current page's underline sits on its bottom
+  edge, like a tab.
   Every text/background pair meets WCAG AA. Lists
   use hairline separators and headings are serif. First visit is light regardless of OS
   setting; the toggle stores the choice and a small script in
