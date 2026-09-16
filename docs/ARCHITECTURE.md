@@ -494,23 +494,23 @@ screenshot pass.
   (`brand-violet` → `brand-magenta` in `@theme`, the same in both themes)
   marks the top strip. The current nav item (Topics / Consumer groups) sits
   on a soft violet pill; the theme toggle is a segmented control with a
-  raised thumb. In the top bar the wordmark's letters end at the image's
-  bottom edge, the toggle's bottom sits on that line, and the desktop links
-  are moved down by their bottom padding plus 0.125em (the space Inter leaves
-  under the baseline with `leading-none`) so their text baseline lands on it
-  too. The desktop links are plain links rather than a daisyUI `menu`, whose
-  own padding would shift them; the mobile dropdown keeps the `menu`.
+  raised thumb. In the top bar the nav links and the toggle are centred
+  vertically on the wordmark. The desktop links are plain links rather than
+  a daisyUI `menu`; the mobile dropdown keeps the `menu`.
   Every text/background pair meets WCAG AA. Lists
   use hairline separators and headings are serif. First visit is light regardless of OS
   setting; the toggle stores the choice and a small script in
   `root.html.heex` applies it before paint.
 - Branding: the sticky top bar shows the "Ashtail" wordmark: purple
   lettering (`priv/static/images/ashtail-wordmark.png`) on the light theme,
-  white lettering (`ashtail-wordmark-dark.png`) on the dark theme. The "A"
-  mark alone, a dark rounded tile (`ashtail-mark-128.png`), is the favicon
-  and touch icon. Sources are `docs/images/logo.png` (mark),
-  `logo-text-purple.png` and `logo-text-white.png`; the web sizes are
-  resized from them.
+  white lettering (`ashtail-wordmark-dark.png`) on the dark theme, 32px
+  tall (28px on mobile). The "A" mark alone, on a transparent background
+  (`ashtail-mark-128.png`, cut from the wordmark as
+  `docs/images/logo-mark.png`), is the favicon; the touch icon puts it on
+  white because iOS fills transparency with black. Sources are
+  `docs/images/logo-text-purple.png` and `logo-text-white.png`; the web
+  sizes are resized from them. `docs/images/logo.png` (the mark on a black
+  square) is kept but not used.
 - Fonts (Inter, Source Serif 4, JetBrains Mono) are self-hosted from
   `priv/static/fonts`, so the app works offline.
 - Shared pieces live in `components/`:

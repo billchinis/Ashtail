@@ -41,29 +41,27 @@ defmodule AshtailWeb.Layouts do
   def app(assigns) do
     ~H"""
     <header class="sticky top-0 z-20 bg-base-100/95 backdrop-blur border-b border-base-300 shadow-sm before:block before:h-1 before:bg-gradient-to-r before:from-brand-violet before:to-brand-magenta">
-      <nav aria-label="Main" class="max-w-7xl mx-auto px-4 sm:px-8 h-16 sm:h-20 flex items-center">
-        <%!-- Bottom-aligned row: the wordmark's letters end at its bottom edge,
-             the theme toggle's bottom sits there too, and the desktop links are
-             nudged down so their text baseline lands on the same line. --%>
-        <div class="flex flex-1 items-end gap-3 sm:gap-8">
+      <nav aria-label="Main" class="max-w-7xl mx-auto px-4 sm:px-8 h-16 flex items-center">
+        <%!-- The nav links and the theme toggle are centred on the wordmark. --%>
+        <div class="flex flex-1 items-center gap-3 sm:gap-8">
           <.link navigate={~p"/"} class="shrink-0" aria-label="Ashtail home">
             <img
               src={~p"/images/ashtail-wordmark.png"}
               alt="Ashtail"
               width="376"
               height="96"
-              class="block h-9 sm:h-11 w-auto [[data-theme=dark]_&]:hidden"
+              class="block h-7 sm:h-8 w-auto [[data-theme=dark]_&]:hidden"
             />
             <img
               src={~p"/images/ashtail-wordmark-dark.png"}
               alt="Ashtail"
               width="367"
               height="96"
-              class="hidden h-9 sm:h-11 w-auto [[data-theme=dark]_&]:block"
+              class="hidden h-7 sm:h-8 w-auto [[data-theme=dark]_&]:block"
             />
           </.link>
 
-          <div class="hidden sm:flex items-end gap-1">
+          <div class="hidden sm:flex items-center gap-1">
             <.link
               navigate={~p"/"}
               data-nav-topics
@@ -82,7 +80,7 @@ defmodule AshtailWeb.Layouts do
             </.link>
           </div>
 
-          <div class="ml-auto flex items-end gap-2">
+          <div class="ml-auto flex items-center gap-2">
             <.theme_toggle />
 
             <div class="dropdown dropdown-end sm:hidden">
@@ -124,11 +122,8 @@ defmodule AshtailWeb.Layouts do
   end
 
   # Desktop nav links: plain text, the current one on a soft violet pill.
-  # With leading-none the text baseline sits 0.375rem (the bottom padding) plus
-  # 0.125em above the link's bottom edge, so the link moves down by exactly that
-  # much to put the baseline on the wordmark's bottom edge.
   @nav_link_base "inline-block px-3.5 py-1.5 rounded-full text-base leading-none " <>
-                   "transition-colors translate-y-[calc(0.375rem+0.125em)] "
+                   "transition-colors "
 
   defp nav_link_class(true),
     do: @nav_link_base <> "font-semibold text-primary bg-primary/10 hover:bg-primary/15"
