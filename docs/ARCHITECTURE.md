@@ -492,8 +492,10 @@ screenshot pass.
   Light is white sheets on a faint lavender page; dark is a deep purple
   ground with a lighter violet primary. The logo's violet-to-magenta gradient
   (`brand-violet` → `brand-magenta` in `@theme`, the same in both themes)
-  marks the top strip, the current nav item and the chosen theme. Nav pills
-  and the theme toggle are both 40px tall so they share a centre line.
+  marks the top strip and underlines the current nav item. The theme toggle
+  is a segmented control with a raised thumb and a violet icon. In the top
+  bar the nav text baseline and the toggle's bottom edge line up with the
+  bottom of the wordmark (whose letters end at the image's bottom edge).
   Every text/background pair meets WCAG AA. Lists
   use hairline separators and headings are serif. First visit is light regardless of OS
   setting; the toggle stores the choice and a small script in

@@ -41,65 +41,67 @@ defmodule AshtailWeb.Layouts do
   def app(assigns) do
     ~H"""
     <header class="sticky top-0 z-20 bg-base-100/95 backdrop-blur border-b border-base-300 shadow-sm before:block before:h-1 before:bg-gradient-to-r before:from-brand-violet before:to-brand-magenta">
-      <nav
-        aria-label="Main"
-        class="max-w-7xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center gap-3 sm:gap-10"
-      >
-        <.link navigate={~p"/"} class="order-1 shrink-0" aria-label="Ashtail home">
-          <img
-            src={~p"/images/ashtail-wordmark.png"}
-            alt="Ashtail"
-            width="186"
-            height="48"
-            class="h-9 sm:h-12 w-auto [[data-theme=dark]_&]:hidden"
-          />
-          <img
-            src={~p"/images/ashtail-wordmark-dark.png"}
-            alt="Ashtail"
-            width="186"
-            height="48"
-            class="hidden h-9 sm:h-12 w-auto [[data-theme=dark]_&]:block"
-          />
-        </.link>
+      <nav aria-label="Main" class="max-w-7xl mx-auto px-4 sm:px-8 h-20 sm:h-24 flex items-center">
+        <%!-- One baseline row: the wordmark's letters end at the image's bottom
+             edge, so the nav text and the theme toggle's bottom line up with
+             the bottom of "Ashtail". --%>
+        <div class="flex flex-1 items-end gap-3 sm:gap-10">
+          <.link navigate={~p"/"} class="order-1 shrink-0" aria-label="Ashtail home">
+            <img
+              src={~p"/images/ashtail-wordmark.png"}
+              alt="Ashtail"
+              width="186"
+              height="48"
+              class="block h-9 sm:h-12 w-auto [[data-theme=dark]_&]:hidden"
+            />
+            <img
+              src={~p"/images/ashtail-wordmark-dark.png"}
+              alt="Ashtail"
+              width="186"
+              height="48"
+              class="hidden h-9 sm:h-12 w-auto [[data-theme=dark]_&]:block"
+            />
+          </.link>
 
-        <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">
-          <div
-            tabindex="0"
-            role="button"
-            class="btn btn-ghost btn-sm btn-square sm:hidden"
-            aria-label="Menu"
-          >
-            <.icon name="hero-bars-3" class="size-5" />
+          <div class="dropdown dropdown-end order-3 sm:order-2 sm:static">
+            <div
+              tabindex="0"
+              role="button"
+              class="btn btn-ghost btn-sm btn-square sm:hidden"
+              aria-label="Menu"
+            >
+              <.icon name="hero-bars-3" class="size-5" />
+            </div>
+            <ul
+              tabindex="0"
+              class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-baseline sm:!gap-6 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
+            >
+              <li>
+                <.link
+                  navigate={~p"/"}
+                  data-nav-topics
+                  aria-current={@section == :topics && "true"}
+                  class={nav_link_class(@section == :topics)}
+                >
+                  Topics
+                </.link>
+              </li>
+              <li>
+                <.link
+                  navigate={~p"/groups"}
+                  data-nav-groups
+                  aria-current={@section == :groups && "true"}
+                  class={nav_link_class(@section == :groups)}
+                >
+                  Consumer groups
+                </.link>
+              </li>
+            </ul>
           </div>
-          <ul
-            tabindex="0"
-            class="menu dropdown-content z-30 mt-2 w-52 gap-1 rounded-box bg-base-100 p-2 shadow-sm sm:!static sm:!flex sm:!opacity-100 sm:!scale-100 sm:mt-0 sm:flex-row sm:items-center sm:!gap-2 sm:!w-auto sm:!rounded-none sm:!bg-transparent sm:!p-0 sm:!shadow-none"
-          >
-            <li>
-              <.link
-                navigate={~p"/"}
-                data-nav-topics
-                aria-current={@section == :topics && "true"}
-                class={nav_link_class(@section == :topics)}
-              >
-                Topics
-              </.link>
-            </li>
-            <li>
-              <.link
-                navigate={~p"/groups"}
-                data-nav-groups
-                aria-current={@section == :groups && "true"}
-                class={nav_link_class(@section == :groups)}
-              >
-                Consumer groups
-              </.link>
-            </li>
-          </ul>
-        </div>
 
-        <div class="order-2 sm:order-3 ml-auto">
-          <.theme_toggle />
+          <div class="order-2 sm:order-3 ml-auto">
+            <.theme_toggle />
+          </div>
         </div>
       </nav>
     </header>
@@ -112,19 +114,25 @@ defmodule AshtailWeb.Layouts do
     """
   end
 
-  # h-10 matches the theme toggle, so the pills and the toggle share a centre line.
-  @nav_link_base "inline-flex items-center h-10 px-4 rounded-full text-base sm:text-lg transition "
+  # Plain text links; the current one is bold with a logo-gradient bar
+  # underneath. On desktop the menu's own padding and fills are removed, and
+  # the text drops by the 0.5em the link box leaves below the baseline, so the
+  # baseline lands on the wordmark's bottom edge.
+  @nav_link_base "relative text-base sm:text-lg transition-colors " <>
+                   "sm:!px-0 sm:!py-0 sm:!min-h-0 sm:leading-none sm:translate-y-[0.5em] " <>
+                   "sm:bg-transparent sm:hover:bg-transparent " <>
+                   "sm:active:!bg-transparent sm:focus:!bg-transparent "
 
   defp nav_link_class(true),
     do:
       @nav_link_base <>
-        "font-semibold text-white bg-gradient-to-r from-brand-violet to-brand-magenta " <>
-        "shadow-sm hover:text-white hover:brightness-110"
+        "font-semibold text-base-content after:absolute after:inset-x-0 " <>
+        "after:-bottom-1.5 after:h-[3px] after:rounded-full after:bg-gradient-to-r " <>
+        "after:from-brand-violet after:to-brand-magenta " <>
+        "max-sm:after:hidden max-sm:bg-base-200 max-sm:text-primary"
 
   defp nav_link_class(false),
-    do:
-      @nav_link_base <>
-        "font-medium text-base-content/70 hover:bg-base-200 hover:text-base-content"
+    do: @nav_link_base <> "font-medium text-base-content/60 hover:text-base-content"
 
   @doc """
   Shows the flash group with standard titles and content.
@@ -182,42 +190,43 @@ defmodule AshtailWeb.Layouts do
   """
   def theme_toggle(assigns) do
     ~H"""
-    <div class="card relative flex flex-row items-center h-10 bg-base-200 ring-1 ring-inset ring-base-300 rounded-full">
-      <div class="absolute w-1/3 h-full rounded-full bg-gradient-to-r from-brand-violet to-brand-magenta shadow-sm left-0 [[data-theme=light]_&]:left-1/3 [[data-theme=dark]_&]:left-2/3 [[data-theme-source=system]_&]:!left-0 transition-[left]" />
+    <div class="card relative flex flex-row items-center gap-0 p-1 bg-base-200 ring-1 ring-inset ring-base-300 rounded-full">
+      <%!-- The raised thumb behind the chosen option, as in a segmented control. --%>
+      <div class="absolute top-1 left-1 size-8 rounded-full bg-base-100 dark:bg-base-300 shadow-sm ring-1 ring-base-300 transition-transform duration-200 [[data-theme=light]_&]:translate-x-8 [[data-theme=dark]_&]:translate-x-16 [[data-theme-source=system]_&]:!translate-x-0" />
 
       <button
-        class="relative flex items-center justify-center size-10 cursor-pointer"
+        class="relative flex items-center justify-center size-8 rounded-full cursor-pointer"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="system"
         aria-label="System theme"
       >
         <.icon
-          name="hero-computer-desktop"
-          class="size-5 opacity-75 hover:opacity-100 [[data-theme-source=system]_&]:text-white [[data-theme-source=system]_&]:opacity-100"
+          name="hero-computer-desktop-mini"
+          class="size-4 text-base-content/50 hover:text-base-content [[data-theme-source=system]_&]:text-primary"
         />
       </button>
 
       <button
-        class="relative flex items-center justify-center size-10 cursor-pointer"
+        class="relative flex items-center justify-center size-8 rounded-full cursor-pointer"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="light"
         aria-label="Light theme"
       >
         <.icon
-          name="hero-sun"
-          class="size-5 opacity-75 hover:opacity-100 [[data-theme=light]:not([data-theme-source=system])_&]:text-white [[data-theme=light]:not([data-theme-source=system])_&]:opacity-100"
+          name="hero-sun-mini"
+          class="size-4 text-base-content/50 hover:text-base-content [[data-theme=light]:not([data-theme-source=system])_&]:text-primary"
         />
       </button>
 
       <button
-        class="relative flex items-center justify-center size-10 cursor-pointer"
+        class="relative flex items-center justify-center size-8 rounded-full cursor-pointer"
         phx-click={JS.dispatch("phx:set-theme")}
         data-phx-theme="dark"
         aria-label="Dark theme"
       >
         <.icon
-          name="hero-moon"
-          class="size-5 opacity-75 hover:opacity-100 [[data-theme=dark]:not([data-theme-source=system])_&]:text-white [[data-theme=dark]:not([data-theme-source=system])_&]:opacity-100"
+          name="hero-moon-mini"
+          class="size-4 text-base-content/50 hover:text-base-content [[data-theme=dark]:not([data-theme-source=system])_&]:text-primary"
         />
       </button>
     </div>
