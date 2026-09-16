@@ -7,7 +7,7 @@ defmodule Ashtail.Kafka.Topics do
   every topic that matches the search.
   """
 
-  alias Ashtail.Kafka.{BrokerError, Client, Config, Partition, Topic}
+  alias Ashtail.Kafka.{BrokerError, Client, Config, Listing, Partition, Topic}
 
   @sort_keys [:name, :partitions, :replication, :messages]
 
@@ -42,22 +42,10 @@ defmodule Ashtail.Kafka.Topics do
 
     with {:ok, metadata} <- Client.metadata(config),
          topics = metadata |> topics_from_metadata() |> filter_by_search(search),
-         {:ok, topics} <- sort_with_offsets(config, topics, sort, dir) do
-      total = length(topics)
-      page_count = max(1, ceil_div(total, page_size))
-      page = clamp(requested_page, 1, page_count)
-      page_topics = Enum.slice(topics, (page - 1) * page_size, page_size)
-
-      with {:ok, page_topics} <- ensure_offsets(config, page_topics, sort) do
-        {:ok,
-         %{
-           topics: page_topics,
-           total: total,
-           page: page,
-           page_size: page_size,
-           page_count: page_count
-         }}
-      end
+         {:ok, topics} <- sort_with_offsets(config, topics, sort, dir),
+         %{items: page_topics} = page <- Listing.paginate(topics, requested_page, page_size),
+         {:ok, page_topics} <- ensure_offsets(config, page_topics, sort) do
+      {:ok, page |> Map.delete(:items) |> Map.put(:topics, page_topics)}
     end
   end
 
@@ -66,20 +54,11 @@ defmodule Ashtail.Kafka.Topics do
   always broken by name ascending, whatever the direction.
   """
   @spec sort_topics([Topic.t()], atom(), :asc | :desc) :: [Topic.t()]
-  def sort_topics(topics, :name, dir), do: Enum.sort_by(topics, & &1.name, dir)
-
   def sort_topics(topics, key, dir) when key in @sort_keys do
-    value = sort_value(key)
-
-    Enum.sort(topics, fn a, b ->
-      case {value.(a), value.(b)} do
-        {same, same} -> a.name <= b.name
-        {x, y} when dir == :asc -> x < y
-        {x, y} -> x > y
-      end
-    end)
+    Listing.sort(topics, sort_value(key), & &1.name, dir)
   end
 
+  defp sort_value(:name), do: & &1.name
   defp sort_value(:partitions), do: & &1.partition_count
   defp sort_value(:replication), do: & &1.replication_factor
   defp sort_value(:messages), do: & &1.message_count
@@ -292,8 +271,4 @@ defmodule Ashtail.Kafka.Topics do
           "since the topic's metadata was fetched."
     }
   end
-
-  defp ceil_div(total, page_size), do: div(total + page_size - 1, page_size)
-
-  defp clamp(value, min, max), do: value |> max(min) |> min(max)
 end

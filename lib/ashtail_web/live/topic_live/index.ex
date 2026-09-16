@@ -8,9 +8,7 @@ defmodule AshtailWeb.TopicLive.Index do
 
   alias Ashtail.Kafka
   alias Ashtail.Kafka.{BrokerError, Topics}
-
-  @default_page_size 20
-  @sort_names Map.new(Topics.sort_keys(), &{Atom.to_string(&1), &1})
+  alias AshtailWeb.ListParams
 
   # {value, label} for the mobile sort menu, where there are no column headers.
   @sort_options [
@@ -32,14 +30,14 @@ defmodule AshtailWeb.TopicLive.Index do
         broker_error: nil,
         total: 0,
         page: 1,
-        page_size: @default_page_size,
+        page_size: ListParams.default_page_size(),
         page_count: 1,
         search: "",
         sort: :name,
         dir: :asc,
-        sort_options: @sort_options,
-        query: %{page: 1, page_size: @default_page_size, search: "", sort: :name, dir: :asc}
+        sort_options: @sort_options
       )
+      |> assign_query()
       |> stream_configure(:topics, dom_id: &("topic-" <> slug(&1.name)))
       |> stream(:topics, [])
 
@@ -48,13 +46,13 @@ defmodule AshtailWeb.TopicLive.Index do
 
   @impl true
   def handle_params(params, _uri, socket) do
-    {sort, dir} = parse_sort(params["sort"], params["dir"])
+    {sort, dir} = ListParams.sort(params["sort"], params["dir"], Topics.sort_keys(), :name)
 
     socket =
       socket
       |> assign(
-        page: parse_page(params["page"]),
-        page_size: parse_page_size(params["page_size"]),
+        page: ListParams.page(params["page"]),
+        page_size: ListParams.page_size(params["page_size"]),
         search: params["q"] || "",
         sort: sort,
         dir: dir
@@ -76,68 +74,26 @@ defmodule AshtailWeb.TopicLive.Index do
 
   @impl true
   def handle_event("sort_select", %{"sort" => value}, socket) do
-    {sort, dir} =
-      case String.split(value, ":") do
-        [sort, dir] -> parse_sort(sort, dir)
-        _ -> parse_sort(nil, nil)
-      end
-
+    {sort, dir} = ListParams.sort_option(value, Topics.sort_keys(), :name)
     {:noreply, push_patch(socket, to: list_path(socket.assigns, page: 1, sort: sort, dir: dir))}
   end
 
   @doc """
-  The list URL for the current state in `assigns` (`page`, `page_size`,
-  `search`, `sort`, `dir`), with `changes` applied.
+  The list URL for the state in `query` (`page`, `page_size`, `search`,
+  `sort`, `dir`), with `changes` applied.
   """
-  def list_path(assigns, changes \\ []) do
-    state =
-      assigns
-      |> Map.take([:page, :page_size, :search, :sort, :dir])
-      |> Map.merge(Map.new(changes))
+  def list_path(query, changes \\ []) do
+    q =
+      query |> Map.take([:page, :page_size, :search, :sort, :dir]) |> Map.merge(Map.new(changes))
 
-    ~p"/?#{[page: state.page, page_size: state.page_size, q: state.search, sort: state.sort, dir: state.dir]}"
+    ~p"/?#{[page: q.page, page_size: q.page_size, q: q.search, sort: q.sort, dir: q.dir]}"
   end
 
-  @doc """
-  The URL a column header links to: the active column flips direction; any
-  other column starts ascending for names and descending for counts, and the
-  page goes back to 1.
-  """
-  def sort_path(assigns, column) do
-    dir =
-      cond do
-        column == assigns.sort -> flip(assigns.dir)
-        column == :name -> :asc
-        true -> :desc
-      end
-
-    list_path(assigns, page: 1, sort: column, dir: dir)
+  @doc "The URL a column header links to (see `AshtailWeb.ListParams.next_dir/4`)."
+  def sort_path(query, column) do
+    dir = ListParams.next_dir(column, query.sort, query.dir, [:name])
+    list_path(query, page: 1, sort: column, dir: dir)
   end
-
-  defp flip(:asc), do: :desc
-  defp flip(:desc), do: :asc
-
-  defp parse_sort(sort, dir) do
-    case {Map.fetch(@sort_names, to_string(sort)), dir} do
-      {{:ok, key}, "desc"} -> {key, :desc}
-      {{:ok, key}, "asc"} -> {key, :asc}
-      _ -> {:name, :asc}
-    end
-  end
-
-  defp parse_page(nil), do: 1
-
-  defp parse_page(page) do
-    case Integer.parse(page) do
-      {int, _} when int > 0 -> int
-      _ -> 1
-    end
-  end
-
-  defp parse_page_size(page_size) when page_size in ["20", "50", 20, 50],
-    do: page_size |> to_string() |> String.to_integer()
-
-  defp parse_page_size(_), do: @default_page_size
 
   defp fetch_topics(socket) do
     %{page: page, page_size: page_size, search: search, sort: sort, dir: dir} = socket.assigns

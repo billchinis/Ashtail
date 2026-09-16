@@ -14,14 +14,60 @@ defmodule Ashtail.Kafka.Groups do
   only.
   """
 
-  alias Ashtail.Kafka.{BrokerError, Client, Config, Group}
+  alias Ashtail.Kafka.{BrokerError, Client, Config, Group, Listing}
+
+  @sort_keys [:id, :state, :members, :lag]
+
+  @doc "The columns `list_groups/2` can sort by."
+  @spec sort_keys() :: [atom()]
+  def sort_keys, do: @sort_keys
 
   @doc """
-  Lists every consumer group on the cluster with its raw state, member
+  One page of the cluster's consumer groups, each with its raw state, member
   count, total lag and per-partition lag breakdown.
+
+  Options: `:page` (default 1), `:page_size` (default 20), `:sort` (one of
+  `sort_keys/0`, default `:id`) and `:dir` (`:asc` or `:desc`, default
+  `:asc`). Lag is needed to sort, so every group is described and measured,
+  not just the returned page.
   """
-  @spec list_groups(Config.t()) :: {:ok, [Group.t()]} | {:error, BrokerError.t()}
-  def list_groups(%Config{} = config), do: fetch_groups(config, :all)
+  @spec list_groups(Config.t(), keyword()) ::
+          {:ok,
+           %{
+             groups: [Group.t()],
+             total: non_neg_integer(),
+             page: pos_integer(),
+             page_size: pos_integer(),
+             page_count: pos_integer()
+           }}
+          | {:error, BrokerError.t()}
+  def list_groups(%Config{} = config, opts \\ []) do
+    sort = Keyword.get(opts, :sort, :id)
+    dir = Keyword.get(opts, :dir, :asc)
+
+    with {:ok, groups} <- fetch_groups(config, :all) do
+      page =
+        groups
+        |> sort_groups(sort, dir)
+        |> Listing.paginate(Keyword.get(opts, :page, 1), Keyword.get(opts, :page_size, 20))
+
+      {:ok, page |> Map.delete(:items) |> Map.put(:groups, page.items)}
+    end
+  end
+
+  @doc """
+  Sorts groups by `key` (one of `sort_keys/0`) in direction `dir`, ties by
+  group id ascending.
+  """
+  @spec sort_groups([Group.t()], atom(), :asc | :desc) :: [Group.t()]
+  def sort_groups(groups, key, dir) when key in @sort_keys do
+    Listing.sort(groups, sort_value(key), & &1.id, dir)
+  end
+
+  defp sort_value(:id), do: & &1.id
+  defp sort_value(:state), do: & &1.state
+  defp sort_value(:members), do: & &1.member_count
+  defp sort_value(:lag), do: & &1.total_lag
 
   @doc """
   Every consumer group that reads the given topic — committed on it, or

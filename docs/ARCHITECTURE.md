@@ -61,7 +61,7 @@ ACLs, offset resets, topic creation/deletion.
 | Topic → Logs | `/topics/:topic/logs` | DescribeLogDirs per replica broker: log dir, size, offset lag. |
 | Produce | `/topics/:topic/produce` | Send one message: key (or null key), value, headers, partition (or auto), optional timestamp. Shows partition/offset written. |
 | Partition browser | `/topics/:topic/partitions/:partition` | Reads one partition from a chosen offset, pages forwards/backwards, live tail. |
-| Consumer groups | `/groups` | State, members, total lag, expandable per-partition lag. |
+| Consumer groups | `/groups` | State, members, total lag, expandable per-partition lag. Paginated (20/50 per page) and sortable by any column like the topic list; default group id A–Z. |
 | Group detail | `/groups/:group` | Per-partition committed offset, latest offset, lag. |
 
 Every screen degrades to an error card ("Could not reach the broker at …")
@@ -269,6 +269,18 @@ Lag is `max(0, latest − committed)`. A partition with no commit is treated as
 committed at `earliest`. The per-topic view keeps a group if it has a commit on
 the topic **or** a live member assigned to it (so a freshly joined consumer
 still shows up).
+
+`list_groups/2` runs that pipeline for every group, then sorts (`:id`,
+`:state`, `:members` or `:lag`) and returns one page. Lag has to be known to
+sort by it, so all groups are measured, not just the visible page.
+
+### `Listing`
+
+Shared by `Topics` and `Groups`: `sort/4` (value in either direction, ties by
+name A–Z) and `paginate/3` (slice a page, clamp the page number, report
+totals). On the web side, `AshtailWeb.ListParams` parses `page`,
+`page_size` and `sort`/`dir` from the URL and picks the direction for a
+header click.
 
 ## 8. The Data view read engine
 
@@ -528,6 +540,7 @@ layout or content check fails.
 | `lagging-analytics` | consumed 50 of `orders`, lag 550 |
 | `payments-worker` | lag 30 on `payments` |
 | `live-tailer` | a detached live consumer on `notifications`, so the group is Stable |
+| `zz-filler-group-01…21` | offset 0 committed on `events.compacted` via `rpk group seek` (Empty, lag 60 each), so the group list has a second page and equal lags to tie-break |
 
 Tests only produce into `scratch`, so the counts other tests assert on never
 drift.

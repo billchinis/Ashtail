@@ -14,7 +14,8 @@
 #   - enough messages to paginate (orders: 600, plus 53 filler topics)
 #   - keys, headers, null keys, JSON and plain-text values
 #   - deterministic per-partition message counts for orders and notifications
-#   - consumer groups with lag 0, with lag, and with a live member (Stable)
+#   - consumer groups with lag 0, with lag, and with a live member (Stable),
+#     plus 21 filler groups so the group list paginates
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
@@ -470,6 +471,17 @@ ensure_group() { # group topic count
 ensure_group orders-service orders 600     # lag 0
 ensure_group lagging-analytics orders 50   # lag 550
 ensure_group payments-worker payments 90   # lag 30
+
+# 21 filler groups so the group list holds 25 groups and has a second page at
+# 20 per page. Each commits offset 0 on both events.compacted partitions
+# (Empty, lag 60), so they also tie on lag and exercise the id tie-break.
+# `rpk group seek` commits offsets directly, with no consumer to wait on.
+for i in $(seq 1 21); do
+  group=$(printf 'zz-filler-group-%02d' "$i")
+  group_exists "$group" && continue
+  rpk group seek "$group" --to start --topics events.compacted --allow-new-topics >/dev/null
+  echo "group $group: created (offset 0 on events.compacted)"
+done
 
 # A group with a live member, so at least one group reports state Stable.
 if ! rpk group describe live-tailer 2>/dev/null | grep -q 'STATE *Stable'; then

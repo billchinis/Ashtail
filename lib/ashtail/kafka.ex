@@ -58,12 +58,12 @@ defmodule Ashtail.Kafka do
   def produce(topic, partition, attrs), do: Messages.produce(config(), topic, partition, attrs)
 
   @doc """
-  Lists every consumer group with its state, total lag and per-partition lag
-  breakdown. See `Ashtail.Kafka.Groups.list_groups/1`.
+  One sorted page of consumer groups with their state, total lag and
+  per-partition lag breakdown. See `Ashtail.Kafka.Groups.list_groups/2` for
+  `opts`.
   """
-  @spec list_groups() ::
-          {:ok, [Ashtail.Kafka.Group.t()]} | {:error, Ashtail.Kafka.BrokerError.t()}
-  def list_groups, do: Groups.list_groups(config())
+  @spec list_groups(keyword()) :: {:ok, map()} | {:error, Ashtail.Kafka.BrokerError.t()}
+  def list_groups(opts \\ []), do: Groups.list_groups(config(), opts)
 
   @doc """
   A single consumer group's state, total lag and per-partition lag

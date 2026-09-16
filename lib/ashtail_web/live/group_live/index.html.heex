@@ -1,12 +1,52 @@
 <Layouts.app flash={@flash} section={:groups}>
-  <.header>Consumer groups</.header>
+  <.header>
+    Consumer groups
+    <:subtitle>{@total} groups</:subtitle>
+  </.header>
 
   <.broker_error error={@broker_error} />
+
+  <div class="flex flex-col sm:flex-row sm:items-end gap-4 mb-6">
+    <form
+      id="sort-form"
+      data-sort-form
+      phx-change="sort_select"
+      class="flex items-center gap-2 sm:hidden"
+    >
+      <label for="sort" class="text-xs text-base-content/60">Sort by</label>
+      <select id="sort" name="sort" class="select select-sm flex-1">
+        <option
+          :for={{value, label} <- @sort_options}
+          value={value}
+          selected={value == "#{@sort}:#{@dir}"}
+        >
+          {label}
+        </option>
+      </select>
+    </form>
+
+    <form
+      id="page-size-form"
+      data-page-size-form
+      phx-change="page_size"
+      class="flex items-center gap-2 sm:ml-auto"
+    >
+      <label for="page_size" class="text-xs text-base-content/60">Per page</label>
+      <select id="page_size" name="page_size" class="select select-sm w-20">
+        <option value="20" selected={@page_size == 20}>20</option>
+        <option value="50" selected={@page_size == 50}>50</option>
+      </select>
+      <span class="loading loading-spinner loading-xs hidden phx-change-loading:inline-block" />
+    </form>
+  </div>
 
   <.table
     id="groups"
     rows={@streams.groups}
     empty="No consumer groups on this cluster."
+    sort_link={&sort_path(@query, &1)}
+    sort_by={@sort}
+    sort_dir={@dir}
     row_attrs={
       fn group ->
         %{
@@ -18,18 +58,18 @@
       end
     }
   >
-    <:col :let={group} label="Group">
+    <:col :let={group} label="Group" sort={:id}>
       <.link navigate={~p"/groups/#{group.id}"} class="link link-hover font-mono break-all">
         {group.id}
       </.link>
     </:col>
-    <:col :let={group} label="State" class="sm:w-48">
+    <:col :let={group} label="State" sort={:state} class="sm:w-48">
       <.state_pill state={group.state} />
     </:col>
-    <:col :let={group} label="Members" numeric class="sm:w-24">
+    <:col :let={group} label="Members" numeric sort={:members} class="sm:w-24">
       <span class="text-base-content/60 sm:hidden">Members </span>{group.member_count}
     </:col>
-    <:col :let={group} label="Total lag" numeric class="sm:w-36">
+    <:col :let={group} label="Total lag" numeric sort={:lag} class="sm:w-36">
       <span class="text-base-content/60 sm:hidden">Lag </span>
       <.lag lag={group.total_lag} class="text-2xl leading-none" />
     </:col>
@@ -98,5 +138,14 @@
         </table>
       </div>
     </:col>
+    <:footer>
+      <div class="flex items-center justify-between gap-4">
+        <span class="text-sm text-base-content/60">Page {@page} of {@page_count}</span>
+        <.pager
+          prev_patch={if @page > 1, do: list_path(@query, page: @page - 1)}
+          next_patch={if @page < @page_count, do: list_path(@query, page: @page + 1)}
+        />
+      </div>
+    </:footer>
   </.table>
 </Layouts.app>
