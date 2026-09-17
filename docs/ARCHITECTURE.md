@@ -502,7 +502,7 @@ screenshot pass.
   setting; the toggle stores the choice and a small script in
   `root.html.heex` applies it before paint.
 - Branding: the top bar shows the "A" mark (`priv/static/images/ashtail-a.png`,
-  28px) followed by "shtail" as HTML text (extra-bold Inter in the theme's
+  36px) followed by "shtail" as HTML text (extra-bold Inter in the theme's
   text colour), both centred on one line with the nav and theme toggle.
   The same mark, on a transparent background, is the favicon
   (`ashtail-mark-128.png`); the touch icon puts it on white because iOS
