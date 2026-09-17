@@ -493,8 +493,9 @@ screenshot pass.
   ground with a lighter violet primary. The logo's violet-to-magenta gradient
   (`brand-violet` → `brand-magenta` in `@theme`, the same in both themes)
   marks the top strip. The current nav item (Topics / Consumer groups) sits
-  on a soft violet pill; the theme toggle is a segmented control with a
-  raised thumb. In the top bar the nav links and the toggle are centred
+  on a soft violet pill; the theme toggle is a two-way (light / dark)
+  segmented control whose thumb is the same soft violet pill, with the
+  chosen icon in the primary colour. In the top bar the nav links and the toggle are centred
   vertically on the wordmark. The desktop links are plain links rather than
   a daisyUI `menu`; the mobile dropdown keeps the `menu`.
   Every text/background pair meets WCAG AA. Lists

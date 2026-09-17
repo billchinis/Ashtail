@@ -56,7 +56,7 @@ defmodule AshtailWeb.Layouts do
               alt=""
               width="113"
               height="96"
-              class="block h-7 w-auto"
+              class="block h-9 w-auto"
             />
             <span class="text-2xl font-extrabold tracking-tight leading-none text-base-content">
               shtail
@@ -195,19 +195,7 @@ defmodule AshtailWeb.Layouts do
     ~H"""
     <div class="card relative flex flex-row items-center gap-0 p-1 bg-base-200 ring-1 ring-inset ring-base-300 rounded-full">
       <%!-- The raised thumb behind the chosen option, as in a segmented control. --%>
-      <div class="absolute top-1 left-1 size-8 rounded-full bg-base-100 dark:bg-base-300 shadow-sm ring-1 ring-base-300 transition-transform duration-200 [[data-theme=light]_&]:translate-x-8 [[data-theme=dark]_&]:translate-x-16 [[data-theme-source=system]_&]:!translate-x-0" />
-
-      <button
-        class="relative flex items-center justify-center size-8 rounded-full cursor-pointer"
-        phx-click={JS.dispatch("phx:set-theme")}
-        data-phx-theme="system"
-        aria-label="System theme"
-      >
-        <.icon
-          name="hero-computer-desktop-mini"
-          class="size-4 text-base-content/50 hover:text-base-content [[data-theme-source=system]_&]:text-primary"
-        />
-      </button>
+      <div class="absolute top-1 left-1 size-8 rounded-full bg-primary/10 transition-transform duration-200 [[data-theme=dark]_&]:translate-x-8" />
 
       <button
         class="relative flex items-center justify-center size-8 rounded-full cursor-pointer"
@@ -217,7 +205,7 @@ defmodule AshtailWeb.Layouts do
       >
         <.icon
           name="hero-sun-mini"
-          class="size-4 text-base-content/50 hover:text-base-content [[data-theme=light]:not([data-theme-source=system])_&]:text-primary"
+          class="size-4 text-base-content/50 hover:text-base-content [[data-theme=light]_&]:text-primary [[data-theme=light]_&]:hover:text-primary"
         />
       </button>
 
@@ -229,7 +217,7 @@ defmodule AshtailWeb.Layouts do
       >
         <.icon
           name="hero-moon-mini"
-          class="size-4 text-base-content/50 hover:text-base-content [[data-theme=dark]:not([data-theme-source=system])_&]:text-primary"
+          class="size-4 text-base-content/50 hover:text-base-content [[data-theme=dark]_&]:text-primary [[data-theme=dark]_&]:hover:text-primary"
         />
       </button>
     </div>
