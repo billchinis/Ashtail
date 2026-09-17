@@ -138,9 +138,9 @@ options map brod/kpro expect.
 
 ### Phoenix
 
-- `dev.exs` binds the endpoint to `0.0.0.0:4000` (so it's reachable from the
-  Windows host when running under WSL), enables code reload and the asset
-  watchers.
+- `dev.exs` binds the endpoint to `0.0.0.0:4000` (so it's reachable from
+  outside the machine or container it runs in), enables code reload and the
+  asset watchers.
 - `test.exs` uses port 4002 with `server: false`, and sets three test-only
   knobs read by the Data view:
   `data_scan_budget: 100`, `data_scan_chunk: 1`,
@@ -633,10 +633,11 @@ change, including the mobile layout.
 - **daisyUI control sizes.** `app.css` sets `--size-field: 0.21875rem`
   globally, so `-sm` controls are 28px rather than daisyUI's 32px. The JSON
   condition row overrides it below `sm` to keep its controls tappable.
-- **WSL clock drift.** Under WSL the clock can step backwards every ~30s
-  (systemd-timesyncd vs the Hyper-V time source). `plug_crypto` then rejects
-  LiveView tokens "signed in the future", which shows up as intermittent
-  session failures in tests. Fix the time sync rather than the tests.
+- **Clock drift.** In a virtualised dev environment the clock can step
+  backwards when the guest's time sync fights the hypervisor's. `plug_crypto`
+  then rejects LiveView tokens "signed in the future", which shows up as
+  intermittent session failures in tests. Fix the time sync rather than the
+  tests.
 - **`rpk group delete` with a live member.** It succeeds while the consumer is
   still running, and the consumer then silently recreates the group. The seed
   script kills stray consumers before deleting groups.

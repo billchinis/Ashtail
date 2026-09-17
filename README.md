@@ -52,6 +52,25 @@ KAFKA_BROKERS=broker1:9092,broker2:9092 mix phx.server
 
 A bad value fails the boot with a message naming the variable.
 
+### Multiple brokers
+
+`KAFKA_BROKERS` is a bootstrap list: plain `host:port` pairs separated by
+commas, with no brackets or quotes around the list. Given more than one entry,
+Ashtail falls back to the next broker when the first is unreachable, and every
+entry is available for metadata, consumer group listing and message fetches.
+
+Two things to watch for:
+
+- The entries must be brokers of the same cluster. Pointed at two unrelated
+  clusters, Ashtail uses whichever one answers first and reports no error.
+- Partition, offset and log dir lookups connect directly to each leader or
+  replica at the address the cluster advertises to its clients, so those
+  advertised hosts and ports must also be reachable from wherever Ashtail runs.
+  A containerized cluster that advertises internal names will list topics fine
+  and then fail on those views.
+
+One Ashtail instance serves one cluster; multiple clusters are out of scope.
+
 ## Checks
 
 ```bash
