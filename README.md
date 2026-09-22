@@ -17,6 +17,34 @@ It has no database. Everything is read live from the broker.
 Built with Phoenix 1.8 / LiveView 1.2, [brod](https://github.com/kafka4beam/brod),
 Tailwind 4 and daisyUI 5.
 
+## Screenshots
+
+**Topics.** Every topic on the cluster with partition count, replication
+factor and message count. Filter by name, sort any column.
+
+![Topics list](docs/images/screenshots/topics.png)
+
+**Messages.** Browse a topic newest first. Filter by key, value or header
+(text or regex), by JSON field conditions, partition and time range, or start
+tailing to watch new messages arrive live.
+
+![Message browser](docs/images/screenshots/messages.png)
+
+**Partitions.** Leader, replicas and earliest/latest offsets per partition;
+click a partition to browse just its messages.
+
+![Topic partitions](docs/images/screenshots/partitions.png)
+
+**Consumer group lag.** Group state, member count and committed vs latest
+offset per partition, with lag highlighted.
+
+![Consumer group lag](docs/images/screenshots/group.png)
+
+**Produce.** Send a single test message with a chosen partition, key (or null
+key), value, headers and timestamp.
+
+![Produce a message](docs/images/screenshots/produce.png)
+
 ## Quick start
 
 Requirements: Elixir 1.17+, Docker (for the local Redpanda broker), Node.js
